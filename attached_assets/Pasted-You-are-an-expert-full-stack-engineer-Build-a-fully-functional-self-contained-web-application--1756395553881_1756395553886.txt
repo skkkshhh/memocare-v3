@@ -1,0 +1,248 @@
+You are an expert full‑stack engineer. Build a **fully functional, self‑contained web application** that mirrors the core functionality of the **Memocare Android app** for Alzheimer’s patients and caregivers. The app must run **locally** on my machine with **VS Code**. Deliver **real, working code** (no placeholders or “coming soon”). If any feature seems unclear, implement a reasonable, minimal working version.
+
+---
+
+## Tech Stack (free-only, local)
+
+* **Frontend:** React + TypeScript + Tailwind CSS
+* **Routing:** React Router
+* **State:** React Query for server state; simple Context for auth/session
+* **Backend:** Express.js + TypeScript
+* **Database:** **SQLite** (file DB) for easiest local setup
+* **ORM:** **Drizzle ORM** (SQLite)
+* **Auth:** `express-session` with a SQLite session store (`connect-sqlite3`)
+* **Scheduling:** `node-cron` or `node-schedule` for reminders
+* **Realtime:** `socket.io` for simulated alerts and live updates (fallback to polling on the client)
+* **Uploads:** `multer` to local `/uploads` directory (images, audio, video)
+* **Voice Recognition:** Web Speech API in the browser
+* **Camera:** `navigator.mediaDevices.getUserMedia`
+* **Geolocation:** `navigator.geolocation`
+
+---
+
+## Project Structure
+
+```
+memocare/
+  README.md
+  .env.example
+  package.json                 # root scripts for dev + build (concurrently)
+  pnpm-lock.yaml | package-lock.json
+  /server
+    package.json
+    tsconfig.json
+    src/
+      index.ts                 # Express bootstrap + socket.io + session
+      config.ts                # env + constants
+      db/
+        schema.ts              # drizzle schema (SQLite)
+        drizzle.config.ts
+        migrations/            # generated sql
+        seed.ts                # seed minimal demo data
+      middleware/
+        auth.ts                # ensureAuth, session setup
+        upload.ts              # multer config
+      utils/
+        password.ts            # hash/verify
+        validators.ts          # zod schemas
+        sockets.ts             # socket.io channels
+      routes/
+        auth.ts
+        users.ts
+        reminders.ts
+        medications.ts
+        contacts.ts
+        locations.ts
+        journal.ts
+        memorywall.ts
+        games.ts
+        routines.ts
+        identify.ts            # tagging objects/people from uploads
+        emergency.ts
+      controllers/             # handler functions per route
+      types.ts
+      public/
+        uploads/               # saved media files
+  /client
+    package.json
+    tsconfig.json
+    tailwind.config.ts
+    postcss.config.js
+    index.html
+    src/
+      main.tsx
+      App.tsx
+      lib/api.ts               # fetch helpers with credentials
+      lib/socket.ts            # socket.io client
+      context/AuthContext.tsx
+      components/ui/*          # buttons, inputs, cards
+      components/*             # feature components
+      pages/
+        Login.tsx
+        Register.tsx
+        Dashboard.tsx
+        Reminders.tsx
+        Medications.tsx
+        Contacts.tsx
+        Locations.tsx
+        Journal.tsx
+        MemoryWall.tsx
+        Games.tsx
+        Routines.tsx
+        Identify.tsx
+        Emergency.tsx
+      styles/index.css         # Tailwind entry
+```
+
+---
+
+## Environment Variables (.env.example)
+
+```
+# server
+PORT=4000
+SESSION_SECRET=devsecretchange
+DATABASE_URL=./memocare.db
+UPLOAD_DIR=./server/public/uploads
+CLIENT_ORIGIN=http://localhost:5173
+
+# client
+VITE_API_BASE=http://localhost:4000
+```
+
+---
+
+## Database (Drizzle + SQLite)
+
+Define the following tables (minimal but complete):
+
+* **users**: id, email (unique), password\_hash, name, created\_at
+* **sessions**: handled by `connect-sqlite3` (file store)
+* **reminders**: id, user\_id, title, type (medication|meal|appointment|task), schedule\_cron, next\_run\_at, active (bool), created\_at
+* **medications**: id, user\_id, name, dosage, notes
+* **medication\_logs**: id, medication\_id, taken\_at (datetime), status (taken|missed)
+* **contacts**: id, user\_id, name, relation, phone, email, photo\_path
+* **locations**: id, user\_id, name, address, lat, lng, context, created\_at
+* **location\_logs**: id, user\_id, lat, lng, recorded\_at
+* **journal\_entries**: id, user\_id, type (text|audio), content\_text, audio\_path, created\_at
+* **memory\_items**: id, user\_id, type (photo|video|audio), file\_path, title, tags (csv), created\_at
+* **routines**: id, user\_id, title, description, created\_at
+* **tasks**: id, routine\_id, title, done (bool)
+* **quiz\_questions**: id, user\_id, question, answer, created\_at
+* **emergency\_alerts**: id, user\_id, triggered\_at, resolved (bool)
+
+Provide Drizzle schema types and relations. Include initial migration and a `seed.ts` that creates: one demo user (email: `demo@memocare.local`, password: `demo123`), a couple of contacts, a medication, a reminder with cron (every minute for demo), and some memory items.
+
+---
+
+## Backend Requirements (Express + TS)
+
+* Configure **CORS** for `CLIENT_ORIGIN`, attach **session middleware** with `express-session` + `connect-sqlite3` store. Use secure settings appropriate for local dev.
+* Authentication routes:
+
+  * `POST /api/auth/register` -> create user (hash passwords with bcrypt)
+  * `POST /api/auth/login` -> set session, return user
+  * `POST /api/auth/logout` -> destroy session
+  * `GET /api/auth/me` -> return current session user
+* Feature routes (CRUD as appropriate):
+
+  * `/api/reminders` (list/create/update/delete, toggle active)
+  * `/api/medications` and `/api/medications/:id/logs` (log taken/missed)
+  * `/api/contacts` (with photo upload via multer)
+  * `/api/locations` (save important places) + `/api/locations/logs` (append location history)
+  * `/api/journal` (text or audio uploads)
+  * `/api/memory` (upload media to `/uploads`; store tags CSV)
+  * `/api/routines` + `/api/routines/:id/tasks`
+  * `/api/games/quiz` (GET: daily quiz generated from latest contacts/medications/memory items; POST: submit answers -> score)
+  * `/api/identify` (POST: upload photo and attach tags/linked contact ids)
+  * `/api/emergency` (POST: trigger alert; server emits `emergency:alert` via socket.io; GET: recent alerts, POST `/resolve/:id`)
+* **Scheduling:** Use `node-cron` to parse `reminders.schedule_cron`. On each tick, insert a “due” event (for demo, also emit `reminder:due` over socket.io and log to console). Advance `next_run_at`.
+* **File Uploads:** Use `multer` disk storage under `UPLOAD_DIR`. Return public URLs served from `server/public/uploads/*`.
+* **Validation:** Use `zod` schemas for inputs; return 400 with messages when invalid.
+* **Security:** Sanitize filenames, limit upload size, restrict MIME types (images/audio/video), protect all `/api/*` (except `/auth/*`) with `ensureAuth` middleware.
+
+---
+
+## Frontend Requirements (React + TS + Tailwind)
+
+* **App shell**: left nav with large accessible buttons; calm, high-contrast palette; large text.
+* **Auth flow**: login and register; keep session via `fetch` with `credentials: 'include'`.
+* **Dashboard**: show today’s reminders, medications, next appointment, quick actions (Emergency, Add Journal, Start Quiz).
+* Each feature page implements working UI + API calls:
+
+  * **Reminders**: list + create/edit cron string (provide presets like hourly, daily 9:00, every 15 min (demo))
+  * **Medications**: CRUD meds; log taken/missed; show last 7 days timeline.
+  * **Contacts (People Cards)**: CRUD with photo upload; card grid with relation labels; quick dial/email links.
+  * **Location Tracking**: button “Record my current location” uses Geolocation; send to `/locations/logs`; history list and map preview using a simple `<iframe>` to OpenStreetMap (no paid APIs).
+  * **Journal**: text editor; **voice‑to‑text** start/stop using Web Speech API; save entries.
+  * **Memory Wall**: upload images/videos/audio; tag input (comma‑separated); filter by tag; masonry grid.
+  * **Routines/Tasks**: CRUD routines and nested tasks; checkbox toggles persisted.
+  * **Games**: daily memory quiz built from contacts/medications/memory tags (4–6 questions). Persist last score.
+  * **Identify**: camera capture via `getUserMedia` + `<video>` + canvas snapshot; allow tagging and link to a contact.
+  * **Emergency**: big red button; on click POST `/api/emergency`; subscribe to socket `emergency:alert` to show confirmation/toast.
+* **Realtime**: show toast when `reminder:due` or `emergency:alert` arrives via socket.io.
+* **Accessibility**: keyboard‑navigable, aria labels, large touch targets.
+
+---
+
+## Scripts & Running Locally
+
+* **Root `package.json` scripts** (use `concurrently`):
+
+  * `dev`: run `server` (ts-node-dev) and `client` (Vite) together
+  * `build`: build server and client
+* **Server scripts**:
+
+  * `dev`: ts-node-dev src/index.ts
+  * `drizzle:migrate`: run migrations
+  * `db:seed`: run seed
+* **Client scripts**:
+
+  * `dev`: Vite dev server on 5173
+
+**Install & Run (document in README, implement so it works):**
+
+```
+# in project root
+pnpm -w install          # or: npm install --workspaces
+pnpm -w run dev          # or: npm run dev
+# Server on :4000, Client on :5173
+```
+
+Include steps for: copy `.env.example` to `.env`, run `pnpm run drizzle:migrate` then `pnpm run db:seed`.
+
+---
+
+## Acceptance Criteria (MUST PASS)
+
+1. I can register and log in; `GET /api/auth/me` returns my user while logged in.
+2. I can create a reminder with a cron like `* * * * *` and within 60s the client receives a `reminder:due` event.
+3. I can add a medication and mark a dose as taken; it appears in logs.
+4. I can add a contact with a photo; it renders on the People Cards page.
+5. I can click “Record my current location”; a new row appears in Location History.
+6. I can create a text journal entry and a voice‑to‑text entry using the Web Speech API.
+7. I can upload files to the Memory Wall and filter by tag.
+8. I can create a routine with tasks and toggle them persisted.
+9. I can start a daily quiz; questions reflect my data; I get a score on submit.
+10. I can click the Emergency button; the client shows an alert via socket.io; `/api/emergency` lists the alert.
+11. All uploads are written under `/server/public/uploads` and served statically.
+12. No page shows “coming soon”. Every nav item performs a real backend action.
+
+---
+
+## Nice‑to‑Have (only if time permits)
+
+* Dark mode toggle
+* Basic audit log for critical actions (emergency, reminders fired)
+
+---
+
+## Delivery Notes
+
+* Provide full source code with the structure above.
+* Include generated Drizzle migration files and a working `drizzle.config.ts` for SQLite.
+* Provide a **concise README** with exact install/run steps.
+* Keep code readable and conventional; avoid AI tell‑tales.
+* If any feature is complex, implement a minimal but working slice rather than a stub.
+
+**Do not** output explanations—just create the repository files in your response. If something is impossible, state the limitation and implement a closest working alternative.
