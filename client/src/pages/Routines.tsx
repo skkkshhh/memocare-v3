@@ -1,0 +1,283 @@
+import { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { routinesApi } from '@/lib/api';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Checkbox } from '@/components/ui/checkbox';
+import { useToast } from '@/hooks/use-toast';
+import { Plus, List, Check, X, Edit } from 'lucide-react';
+
+export default function Routines() {
+  const [showRoutineForm, setShowRoutineForm] = useState(false);
+  const [showTaskForm, setShowTaskForm] = useState<number | null>(null);
+  const [routineData, setRoutineData] = useState({
+    title: '',
+    description: '',
+  });
+  const [taskData, setTaskData] = useState({
+    title: '',
+  });
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  const { data: routines = [], isLoading } = useQuery({
+    queryKey: ['routines'],
+    queryFn: routinesApi.list,
+  });
+
+  const createRoutineMutation = useMutation({
+    mutationFn: (data: any) => routinesApi.create(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['routines'] });
+      setShowRoutineForm(false);
+      setRoutineData({ title: '', description: '' });
+      toast({ title: 'Routine created successfully' });
+    },
+  });
+
+  const createTaskMutation = useMutation({
+    mutationFn: ({ routineId, task }: { routineId: number; task: any }) =>
+      routinesApi.createTask(routineId, task),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['routines'] });
+      setShowTaskForm(null);
+      setTaskData({ title: '' });
+      toast({ title: 'Task added successfully' });
+    },
+  });
+
+  const updateTaskMutation = useMutation({
+    mutationFn: ({ taskId, updates }: { taskId: number; updates: any }) =>
+      routinesApi.updateTask(taskId, updates),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['routines'] });
+    },
+  });
+
+  // Fetch tasks for each routine
+  const useRoutineTasks = (routineId: number) => {
+    return useQuery({
+      queryKey: ['routine-tasks', routineId],
+      queryFn: () => routinesApi.tasks(routineId),
+    });
+  };
+
+  const handleCreateRoutine = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!routineData.title) return;
+    createRoutineMutation.mutate(routineData);
+  };
+
+  const handleCreateTask = (routineId: number) => (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!taskData.title) return;
+    createTaskMutation.mutate({ routineId, task: taskData });
+  };
+
+  const toggleTask = (taskId: number, done: boolean) => {
+    updateTaskMutation.mutate({ taskId, updates: { done } });
+  };
+
+  if (isLoading) {
+    return <div className="p-8">Loading routines...</div>;
+  }
+
+  return (
+    <div className="p-8">
+      <div className="mb-8 flex items-center justify-between">
+        <div>
+          <h2 className="text-4xl font-semibold text-foreground mb-2" data-testid="routines-title">
+            Routines & Tasks
+          </h2>
+          <p className="text-xl text-muted-foreground">
+            Organize your daily activities with structured routines
+          </p>
+        </div>
+        <Button 
+          onClick={() => setShowRoutineForm(!showRoutineForm)}
+          data-testid="button-add-routine"
+        >
+          <Plus className="w-4 h-4 mr-2" />
+          Add Routine
+        </Button>
+      </div>
+
+      {/* Add Routine Form */}
+      {showRoutineForm && (
+        <Card className="mb-8" data-testid="card-add-routine">
+          <CardHeader>
+            <CardTitle>Create New Routine</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleCreateRoutine} className="space-y-4">
+              <div>
+                <Label htmlFor="title">Routine Title</Label>
+                <Input
+                  id="title"
+                  value={routineData.title}
+                  onChange={(e) => setRoutineData(prev => ({ ...prev, title: e.target.value }))}
+                  placeholder="Morning routine, Evening checklist, etc."
+                  required
+                  data-testid="input-routine-title"
+                />
+              </div>
+              <div>
+                <Label htmlFor="description">Description</Label>
+                <Textarea
+                  id="description"
+                  value={routineData.description}
+                  onChange={(e) => setRoutineData(prev => ({ ...prev, description: e.target.value }))}
+                  placeholder="Optional description of this routine"
+                  data-testid="textarea-routine-description"
+                />
+              </div>
+              <div className="flex space-x-2">
+                <Button 
+                  type="submit" 
+                  disabled={createRoutineMutation.isPending}
+                  data-testid="button-save-routine"
+                >
+                  {createRoutineMutation.isPending ? 'Creating...' : 'Create Routine'}
+                </Button>
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  onClick={() => setShowRoutineForm(false)}
+                  data-testid="button-cancel-routine"
+                >
+                  Cancel
+                </Button>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Routines List */}
+      <div className="space-y-6">
+        {routines.length === 0 ? (
+          <Card>
+            <CardContent className="py-8">
+              <div className="text-center" data-testid="empty-routines">
+                <List className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />
+                <h3 className="text-xl font-semibold mb-2">No routines created</h3>
+                <p className="text-muted-foreground mb-4">
+                  Create your first routine to organize your daily activities
+                </p>
+                <Button onClick={() => setShowRoutineForm(true)}>
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add Routine
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        ) : (
+          routines.map((routine: any) => <RoutineCard key={routine.id} routine={routine} />)
+        )}
+      </div>
+    </div>
+  );
+
+  function RoutineCard({ routine }: { routine: any }) {
+    const { data: tasks = [] } = useRoutineTasks(routine.id);
+    const completedTasks = tasks.filter((task: any) => task.done).length;
+
+    return (
+      <Card data-testid={`routine-card-${routine.id}`}>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="text-2xl">{routine.title}</CardTitle>
+              {routine.description && (
+                <p className="text-muted-foreground mt-1">{routine.description}</p>
+              )}
+            </div>
+            <div className="text-right">
+              <div className="text-2xl font-semibold text-primary">
+                {completedTasks}/{tasks.length}
+              </div>
+              <div className="text-sm text-muted-foreground">Completed</div>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {/* Task List */}
+          <div className="space-y-3 mb-4">
+            {tasks.length === 0 ? (
+              <p className="text-muted-foreground italic" data-testid={`empty-tasks-${routine.id}`}>
+                No tasks added yet
+              </p>
+            ) : (
+              tasks.map((task: any) => (
+                <div 
+                  key={task.id} 
+                  className="flex items-center space-x-3 p-3 bg-muted rounded-lg"
+                  data-testid={`task-${task.id}`}
+                >
+                  <Checkbox
+                    checked={task.done}
+                    onCheckedChange={(checked) => toggleTask(task.id, !!checked)}
+                    data-testid={`checkbox-task-${task.id}`}
+                  />
+                  <span 
+                    className={`flex-1 text-lg ${
+                      task.done ? 'line-through text-muted-foreground' : 'text-card-foreground'
+                    }`}
+                  >
+                    {task.title}
+                  </span>
+                  {task.done && (
+                    <Check className="w-5 h-5 text-accent" />
+                  )}
+                </div>
+              ))
+            )}
+          </div>
+
+          {/* Add Task Form */}
+          {showTaskForm === routine.id ? (
+            <form onSubmit={handleCreateTask(routine.id)} className="flex space-x-2">
+              <Input
+                value={taskData.title}
+                onChange={(e) => setTaskData({ title: e.target.value })}
+                placeholder="Enter task title"
+                required
+                data-testid={`input-task-${routine.id}`}
+              />
+              <Button 
+                type="submit" 
+                size="sm" 
+                disabled={createTaskMutation.isPending}
+                data-testid={`button-save-task-${routine.id}`}
+              >
+                <Check className="w-4 h-4" />
+              </Button>
+              <Button 
+                type="button" 
+                size="sm" 
+                variant="outline"
+                onClick={() => setShowTaskForm(null)}
+                data-testid={`button-cancel-task-${routine.id}`}
+              >
+                <X className="w-4 h-4" />
+              </Button>
+            </form>
+          ) : (
+            <Button
+              variant="outline"
+              className="w-full"
+              onClick={() => setShowTaskForm(routine.id)}
+              data-testid={`button-add-task-${routine.id}`}
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Add Task
+            </Button>
+          )}
+        </CardContent>
+      </Card>
+    );
+  }
+}

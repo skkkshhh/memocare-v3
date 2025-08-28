@@ -1,0 +1,364 @@
+import { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { memoryApi } from '@/lib/api';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Badge } from '@/components/ui/badge';
+import { useToast } from '@/hooks/use-toast';
+import { Plus, Images, Camera, Video, Music, Search, Filter } from 'lucide-react';
+
+export default function MemoryWall() {
+  const [showUploadForm, setShowUploadForm] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [typeFilter, setTypeFilter] = useState('all');
+  const [tagFilter, setTagFilter] = useState('all');
+  const [uploadData, setUploadData] = useState({
+    title: '',
+    tags: '',
+    type: '',
+  });
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  const { data: memoryItems = [], isLoading } = useQuery({
+    queryKey: ['memory'],
+    queryFn: memoryApi.list,
+  });
+
+  const uploadMutation = useMutation({
+    mutationFn: (formData: FormData) => memoryApi.create(formData),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['memory'] });
+      setShowUploadForm(false);
+      setUploadData({ title: '', tags: '', type: '' });
+      setSelectedFile(null);
+      toast({ title: 'Memory uploaded successfully' });
+    },
+  });
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setSelectedFile(file);
+    
+    // Auto-detect type based on file
+    if (file.type.startsWith('image/')) {
+      setUploadData(prev => ({ ...prev, type: 'photo' }));
+    } else if (file.type.startsWith('video/')) {
+      setUploadData(prev => ({ ...prev, type: 'video' }));
+    } else if (file.type.startsWith('audio/')) {
+      setUploadData(prev => ({ ...prev, type: 'audio' }));
+    }
+  };
+
+  const handleUpload = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedFile || !uploadData.title || !uploadData.type) {
+      toast({
+        title: 'Missing information',
+        description: 'Please select a file, enter a title, and specify the type',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append('file', selectedFile);
+    formData.append('title', uploadData.title);
+    formData.append('type', uploadData.type);
+    formData.append('tags', uploadData.tags);
+
+    uploadMutation.mutate(formData);
+  };
+
+  // Get unique tags for filter
+  const allTags = Array.from(
+    new Set(
+      memoryItems
+        .flatMap((item: any) => item.tags ? item.tags.split(',').map((tag: string) => tag.trim()) : [])
+        .filter(Boolean)
+    )
+  );
+
+  const filteredMemories = memoryItems.filter((item: any) => {
+    const matchesSearch = item.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         (item.tags && item.tags.toLowerCase().includes(searchTerm.toLowerCase()));
+    const matchesType = typeFilter === 'all' || item.type === typeFilter;
+    const matchesTag = tagFilter === 'all' || (item.tags && item.tags.includes(tagFilter));
+    return matchesSearch && matchesType && matchesTag;
+  });
+
+  const getMemoryIcon = (type: string) => {
+    switch (type) {
+      case 'photo': return <Camera className="w-4 h-4" />;
+      case 'video': return <Video className="w-4 h-4" />;
+      case 'audio': return <Music className="w-4 h-4" />;
+      default: return <Images className="w-4 h-4" />;
+    }
+  };
+
+  if (isLoading) {
+    return <div className="p-8">Loading memory wall...</div>;
+  }
+
+  return (
+    <div className="p-8">
+      <div className="mb-8 flex items-center justify-between">
+        <div>
+          <h2 className="text-4xl font-semibold text-foreground mb-2" data-testid="memory-wall-title">
+            Memory Wall
+          </h2>
+          <p className="text-xl text-muted-foreground">
+            Your collection of precious moments and memories
+          </p>
+        </div>
+        <Button 
+          onClick={() => setShowUploadForm(!showUploadForm)}
+          data-testid="button-add-memory"
+        >
+          <Plus className="w-4 h-4 mr-2" />
+          Add Memory
+        </Button>
+      </div>
+
+      {/* Upload Form */}
+      {showUploadForm && (
+        <Card className="mb-8" data-testid="card-upload-memory">
+          <CardHeader>
+            <CardTitle>Upload New Memory</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleUpload} className="space-y-4">
+              <div>
+                <Label htmlFor="file">Choose File</Label>
+                <Input
+                  id="file"
+                  type="file"
+                  accept="image/*,video/*,audio/*"
+                  onChange={handleFileSelect}
+                  required
+                  data-testid="input-memory-file"
+                />
+                {selectedFile && (
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Selected: {selectedFile.name} ({(selectedFile.size / 1024 / 1024).toFixed(2)} MB)
+                  </p>
+                )}
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="title">Title</Label>
+                  <Input
+                    id="title"
+                    value={uploadData.title}
+                    onChange={(e) => setUploadData(prev => ({ ...prev, title: e.target.value }))}
+                    placeholder="Family dinner, Birthday party, etc."
+                    required
+                    data-testid="input-memory-title"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="type">Type</Label>
+                  <Select 
+                    value={uploadData.type} 
+                    onValueChange={(value) => setUploadData(prev => ({ ...prev, type: value }))}
+                    required
+                  >
+                    <SelectTrigger data-testid="select-memory-type">
+                      <SelectValue placeholder="Select type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="photo">Photo</SelectItem>
+                      <SelectItem value="video">Video</SelectItem>
+                      <SelectItem value="audio">Audio</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div>
+                <Label htmlFor="tags">Tags (comma-separated)</Label>
+                <Input
+                  id="tags"
+                  value={uploadData.tags}
+                  onChange={(e) => setUploadData(prev => ({ ...prev, tags: e.target.value }))}
+                  placeholder="family, celebration, birthday, etc."
+                  data-testid="input-memory-tags"
+                />
+              </div>
+
+              <div className="flex space-x-2">
+                <Button 
+                  type="submit" 
+                  disabled={uploadMutation.isPending}
+                  data-testid="button-upload-memory"
+                >
+                  {uploadMutation.isPending ? 'Uploading...' : 'Upload Memory'}
+                </Button>
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  onClick={() => setShowUploadForm(false)}
+                  data-testid="button-cancel-upload"
+                >
+                  Cancel
+                </Button>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Search and Filter Controls */}
+      <Card className="mb-8" data-testid="card-filters">
+        <CardContent className="p-6">
+          <div className="flex flex-col md:flex-row gap-4 items-center">
+            <div className="flex-1">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+                <Input
+                  type="text"
+                  placeholder="Search memories by title or tag..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10 text-lg"
+                  data-testid="input-search-memories"
+                />
+              </div>
+            </div>
+            <Select value={typeFilter} onValueChange={setTypeFilter}>
+              <SelectTrigger className="w-40" data-testid="select-type-filter">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Types</SelectItem>
+                <SelectItem value="photo">Photos</SelectItem>
+                <SelectItem value="video">Videos</SelectItem>
+                <SelectItem value="audio">Audio</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={tagFilter} onValueChange={setTagFilter}>
+              <SelectTrigger className="w-40" data-testid="select-tag-filter">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Tags</SelectItem>
+                {allTags.map(tag => (
+                  <SelectItem key={tag} value={tag}>{tag}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Memory Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        {filteredMemories.length === 0 ? (
+          <div className="col-span-full">
+            <Card>
+              <CardContent className="py-8">
+                <div className="text-center" data-testid="empty-memories">
+                  <Images className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />
+                  <h3 className="text-xl font-semibold mb-2">
+                    {searchTerm || typeFilter !== 'all' || tagFilter !== 'all' 
+                      ? 'No memories found' 
+                      : 'No memories uploaded'
+                    }
+                  </h3>
+                  <p className="text-muted-foreground mb-4">
+                    {searchTerm || typeFilter !== 'all' || tagFilter !== 'all'
+                      ? 'Try adjusting your search or filters'
+                      : 'Upload your first memory to get started'
+                    }
+                  </p>
+                  {!searchTerm && typeFilter === 'all' && tagFilter === 'all' && (
+                    <Button onClick={() => setShowUploadForm(true)}>
+                      <Plus className="w-4 h-4 mr-2" />
+                      Add Memory
+                    </Button>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        ) : (
+          <>
+            {filteredMemories.map((memory: any) => (
+              <Card key={memory.id} className="overflow-hidden hover:shadow-lg transition-shadow group" data-testid={`memory-${memory.id}`}>
+                <div className="relative aspect-square overflow-hidden">
+                  {memory.type === 'photo' ? (
+                    <div className="w-full h-full bg-muted flex items-center justify-center">
+                      <Camera className="w-12 h-12 text-muted-foreground" />
+                    </div>
+                  ) : memory.type === 'video' ? (
+                    <div className="w-full h-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center">
+                      <Video className="w-12 h-12 text-white" />
+                    </div>
+                  ) : (
+                    <div className="w-full h-full bg-gradient-to-br from-accent to-primary flex items-center justify-center">
+                      <Music className="w-12 h-12 text-white" />
+                    </div>
+                  )}
+                  
+                  <div className="absolute top-2 right-2 bg-black/50 rounded-full p-2">
+                    {getMemoryIcon(memory.type)}
+                  </div>
+                  
+                  {memory.type === 'video' && (
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <div className="w-16 h-16 bg-black/50 rounded-full flex items-center justify-center">
+                        <Video className="text-white text-2xl" />
+                      </div>
+                    </div>
+                  )}
+                </div>
+                
+                <CardContent className="p-4">
+                  <h3 className="font-semibold text-card-foreground mb-2">{memory.title}</h3>
+                  
+                  {memory.tags && (
+                    <div className="flex flex-wrap gap-1 mb-3">
+                      {memory.tags.split(',').map((tag: string, index: number) => (
+                        <Badge key={index} variant="secondary" className="text-xs">
+                          {tag.trim()}
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
+                  
+                  <p className="text-sm text-muted-foreground">
+                    Added {new Date(memory.created_at).toLocaleDateString()}
+                    {memory.type === 'audio' && ' • Audio recording'}
+                    {memory.type === 'video' && ' • Video file'}
+                  </p>
+                </CardContent>
+              </Card>
+            ))}
+            
+            {/* Upload New Memory Card */}
+            <Card 
+              className="border-2 border-dashed border-border hover:border-primary hover:bg-primary/5 transition-all cursor-pointer" 
+              onClick={() => setShowUploadForm(true)}
+              data-testid="card-upload-new"
+            >
+              <div className="aspect-square flex items-center justify-center">
+                <div className="text-center py-8">
+                  <Plus className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
+                  <h3 className="text-xl font-semibold text-card-foreground mb-2">Add Memory</h3>
+                  <p className="text-muted-foreground">Upload photo, video, or audio</p>
+                </div>
+              </div>
+            </Card>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
