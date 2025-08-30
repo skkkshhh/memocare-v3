@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Users, Phone, Mail, Calendar, Upload } from 'lucide-react';
+import { Plus, Users, Phone, Mail, Calendar } from 'lucide-react';
 
 export default function Contacts() {
   const [showForm, setShowForm] = useState(false);
@@ -15,7 +15,7 @@ export default function Contacts() {
   const [relationFilter, setRelationFilter] = useState('all');
   const [formData, setFormData] = useState({
     name: '',
-    relation: '',
+    relation: undefined as string | undefined,
     phone: '',
     email: '',
   });
@@ -33,7 +33,7 @@ export default function Contacts() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['contacts'] });
       setShowForm(false);
-      setFormData({ name: '', relation: '', phone: '', email: '' });
+      setFormData({ name: '', relation: undefined, phone: '', email: '' });
       setPhotoFile(null);
       toast({ title: 'Contact added successfully' });
     },
@@ -48,9 +48,7 @@ export default function Contacts() {
     formDataToSend.append('relation', formData.relation);
     formDataToSend.append('phone', formData.phone);
     formDataToSend.append('email', formData.email);
-    if (photoFile) {
-      formDataToSend.append('photo', photoFile);
-    }
+    if (photoFile) formDataToSend.append('photo', photoFile);
 
     createMutation.mutate(formDataToSend);
   };
@@ -65,9 +63,7 @@ export default function Contacts() {
     return matchesSearch && matchesRelation;
   });
 
-  if (isLoading) {
-    return <div className="p-8">Loading contacts...</div>;
-  }
+  if (isLoading) return <div className="p-8">Loading contacts...</div>;
 
   return (
     <div className="p-8">
@@ -80,12 +76,8 @@ export default function Contacts() {
             Keep track of important people in your life
           </p>
         </div>
-        <Button 
-          onClick={() => setShowForm(!showForm)}
-          data-testid="button-add-contact"
-        >
-          <Plus className="w-4 h-4 mr-2" />
-          Add Person
+        <Button onClick={() => setShowForm(!showForm)} data-testid="button-add-contact">
+          <Plus className="w-4 h-4 mr-2" /> Add Person
         </Button>
       </div>
 
@@ -137,11 +129,16 @@ export default function Contacts() {
                 </div>
                 <div>
                   <Label htmlFor="relation">Relationship</Label>
-                  <Select value={formData.relation} onValueChange={(value) => handleInputChange('relation', value)} required>
+                  <Select
+                    value={formData.relation ?? ''}
+                    onValueChange={(value) => handleInputChange('relation', value)}
+                    required
+                  >
                     <SelectTrigger data-testid="select-contact-relation">
                       <SelectValue placeholder="Select relationship" />
                     </SelectTrigger>
                     <SelectContent>
+                      <SelectItem value="">Select relationship</SelectItem>
                       <SelectItem value="daughter">Daughter</SelectItem>
                       <SelectItem value="son">Son</SelectItem>
                       <SelectItem value="spouse">Spouse</SelectItem>
@@ -153,6 +150,7 @@ export default function Contacts() {
                   </Select>
                 </div>
               </div>
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="phone">Phone Number</Label>
@@ -177,6 +175,7 @@ export default function Contacts() {
                   />
                 </div>
               </div>
+
               <div>
                 <Label htmlFor="photo">Photo</Label>
                 <Input
@@ -187,20 +186,12 @@ export default function Contacts() {
                   data-testid="input-contact-photo"
                 />
               </div>
+
               <div className="flex space-x-2">
-                <Button 
-                  type="submit" 
-                  disabled={createMutation.isPending}
-                  data-testid="button-save-contact"
-                >
+                <Button type="submit" disabled={createMutation.isPending} data-testid="button-save-contact">
                   {createMutation.isPending ? 'Adding...' : 'Add Person'}
                 </Button>
-                <Button 
-                  type="button" 
-                  variant="outline" 
-                  onClick={() => setShowForm(false)}
-                  data-testid="button-cancel-contact"
-                >
+                <Button type="button" variant="outline" onClick={() => setShowForm(false)} data-testid="button-cancel-contact">
                   Cancel
                 </Button>
               </div>
@@ -214,112 +205,85 @@ export default function Contacts() {
         {filteredContacts.length === 0 ? (
           <div className="col-span-full">
             <Card>
-              <CardContent className="py-8">
-                <div className="text-center" data-testid="empty-contacts">
-                  <Users className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />
-                  <h3 className="text-xl font-semibold mb-2">
-                    {searchTerm || relationFilter !== 'all' ? 'No contacts found' : 'No contacts added'}
+              <CardContent className="py-8 text-center">
+                <Users className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />
+                <h3 className="text-xl font-semibold mb-2">
+                  {searchTerm || relationFilter !== 'all' ? 'No contacts found' : 'No contacts added'}
+                </h3>
+                <p className="text-muted-foreground mb-4">
+                  {searchTerm || relationFilter !== 'all'
+                    ? 'Try adjusting your search or filter'
+                    : 'Add your first contact to get started'}
+                </p>
+                {!searchTerm && relationFilter === 'all' && (
+                  <Button onClick={() => setShowForm(true)}>
+                    <Plus className="w-4 h-4 mr-2" />
+                    Add Person
+                  </Button>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        ) : (
+          filteredContacts.map((contact: any) => (
+            <Card key={contact.id} className="hover:shadow-lg transition-shadow" data-testid={`contact-card-${contact.id}`}>
+              <CardContent className="p-6">
+                <div className="text-center mb-4">
+                  <div className="w-24 h-24 mx-auto mb-4 rounded-full overflow-hidden bg-secondary flex items-center justify-center">
+                    {contact.photo_path ? (
+                      <img
+                        src={`${import.meta.env.VITE_API_BASE || 'http://localhost:5000'}${contact.photo_path}`}
+                        alt={`${contact.name} portrait`}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <Users className="w-12 h-12 text-secondary-foreground" />
+                    )}
+                  </div>
+                  <h3 className="text-2xl font-semibold text-card-foreground" data-testid={`contact-name-${contact.id}`}>
+                    {contact.name}
                   </h3>
-                  <p className="text-muted-foreground mb-4">
-                    {searchTerm || relationFilter !== 'all' 
-                      ? 'Try adjusting your search or filter'
-                      : 'Add your first contact to get started'
-                    }
-                  </p>
-                  {!searchTerm && relationFilter === 'all' && (
-                    <Button onClick={() => setShowForm(true)}>
-                      <Plus className="w-4 h-4 mr-2" />
-                      Add Person
+                  <span className="inline-block px-3 py-1 bg-accent text-accent-foreground rounded-full text-sm font-medium">
+                    {contact.relation}
+                  </span>
+                </div>
+
+                <div className="space-y-3 mb-6">
+                  {contact.phone && (
+                    <div className="flex items-center space-x-3">
+                      <Phone className="text-primary w-4 h-4" />
+                      <span className="text-muted-foreground">{contact.phone}</span>
+                    </div>
+                  )}
+                  {contact.email && (
+                    <div className="flex items-center space-x-3">
+                      <Mail className="text-primary w-4 h-4" />
+                      <span className="text-muted-foreground">{contact.email}</span>
+                    </div>
+                  )}
+                  <div className="flex items-center space-x-3">
+                    <Calendar className="text-primary w-4 h-4" />
+                    <span className="text-muted-foreground">
+                      Added {new Date(contact.created_at).toLocaleDateString()}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex space-x-2">
+                  {contact.phone && (
+                    <Button className="flex-1" onClick={() => window.open(`tel:${contact.phone}`)} data-testid={`button-call-${contact.id}`}>
+                      <Phone className="w-4 h-4 mr-2" /> Call
+                    </Button>
+                  )}
+                  {contact.email && (
+                    <Button className="flex-1" variant="secondary" onClick={() => window.open(`mailto:${contact.email}`)} data-testid={`button-email-${contact.id}`}>
+                      <Mail className="w-4 h-4 mr-2" /> Email
                     </Button>
                   )}
                 </div>
               </CardContent>
             </Card>
-          </div>
-        ) : (
-          <>
-            {filteredContacts.map((contact: any) => (
-              <Card key={contact.id} className="hover:shadow-lg transition-shadow" data-testid={`contact-card-${contact.id}`}>
-                <CardContent className="p-6">
-                  <div className="text-center mb-4">
-                    <div className="w-24 h-24 mx-auto mb-4 rounded-full overflow-hidden bg-secondary flex items-center justify-center">
-                      {contact.photo_path ? (
-                        <img 
-                          src={`${import.meta.env.VITE_API_BASE || 'http://localhost:5000'}${contact.photo_path}`}
-                          alt={`${contact.name} portrait`}
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <Users className="w-12 h-12 text-secondary-foreground" />
-                      )}
-                    </div>
-                    <h3 className="text-2xl font-semibold text-card-foreground" data-testid={`contact-name-${contact.id}`}>
-                      {contact.name}
-                    </h3>
-                    <span className="inline-block px-3 py-1 bg-accent text-accent-foreground rounded-full text-sm font-medium">
-                      {contact.relation}
-                    </span>
-                  </div>
-
-                  <div className="space-y-3 mb-6">
-                    {contact.phone && (
-                      <div className="flex items-center space-x-3">
-                        <Phone className="text-primary w-4 h-4" />
-                        <span className="text-muted-foreground">{contact.phone}</span>
-                      </div>
-                    )}
-                    {contact.email && (
-                      <div className="flex items-center space-x-3">
-                        <Mail className="text-primary w-4 h-4" />
-                        <span className="text-muted-foreground">{contact.email}</span>
-                      </div>
-                    )}
-                    <div className="flex items-center space-x-3">
-                      <Calendar className="text-primary w-4 h-4" />
-                      <span className="text-muted-foreground">
-                        Added {new Date(contact.created_at).toLocaleDateString()}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="flex space-x-2">
-                    {contact.phone && (
-                      <Button
-                        className="flex-1"
-                        onClick={() => window.open(`tel:${contact.phone}`)}
-                        data-testid={`button-call-${contact.id}`}
-                      >
-                        <Phone className="w-4 h-4 mr-2" />
-                        Call
-                      </Button>
-                    )}
-                    {contact.email && (
-                      <Button
-                        className="flex-1"
-                        variant="secondary"
-                        onClick={() => window.open(`mailto:${contact.email}`)}
-                        data-testid={`button-email-${contact.id}`}
-                      >
-                        <Mail className="w-4 h-4 mr-2" />
-                        Email
-                      </Button>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-            
-            {/* Add New Contact Card */}
-            <Card className="border-2 border-dashed border-border hover:border-primary hover:bg-primary/5 transition-all cursor-pointer" onClick={() => setShowForm(true)} data-testid="card-add-new-contact">
-              <CardContent className="p-6">
-                <div className="text-center py-8">
-                  <Plus className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
-                  <h3 className="text-xl font-semibold text-card-foreground mb-2">Add New Person</h3>
-                  <p className="text-muted-foreground">Create a new contact card</p>
-                </div>
-              </CardContent>
-            </Card>
-          </>
+          ))
         )}
       </div>
     </div>

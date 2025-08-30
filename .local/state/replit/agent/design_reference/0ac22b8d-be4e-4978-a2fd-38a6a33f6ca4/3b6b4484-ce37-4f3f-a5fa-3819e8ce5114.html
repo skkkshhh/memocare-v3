@@ -1,0 +1,1245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Memocare - Alzheimer's Care Assistant</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    borderRadius: {
+                        lg: "var(--radius)",
+                        md: "calc(var(--radius) - 2px)",
+                        sm: "calc(var(--radius) - 4px)",
+                    },
+                    colors: {
+                        background: "var(--background)",
+                        foreground: "var(--foreground)",
+                        card: {
+                            DEFAULT: "var(--card)",
+                            foreground: "var(--card-foreground)",
+                        },
+                        popover: {
+                            DEFAULT: "var(--popover)",
+                            foreground: "var(--popover-foreground)",
+                        },
+                        primary: {
+                            DEFAULT: "var(--primary)",
+                            foreground: "var(--primary-foreground)",
+                        },
+                        secondary: {
+                            DEFAULT: "var(--secondary)",
+                            foreground: "var(--secondary-foreground)",
+                        },
+                        muted: {
+                            DEFAULT: "var(--muted)",
+                            foreground: "var(--muted-foreground)",
+                        },
+                        accent: {
+                            DEFAULT: "var(--accent)",
+                            foreground: "var(--accent-foreground)",
+                        },
+                        destructive: {
+                            DEFAULT: "var(--destructive)",
+                            foreground: "var(--destructive-foreground)",
+                        },
+                        border: "var(--border)",
+                        input: "var(--input)",
+                        ring: "var(--ring)",
+                    },
+                    fontFamily: {
+                        sans: ["Inter", "system-ui", "sans-serif"],
+                    }
+                },
+            }
+        };
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        :root {
+            --background: hsl(210 20% 98%);
+            --foreground: hsl(220 20% 15%);
+            --card: hsl(0 0% 100%);
+            --card-foreground: hsl(220 20% 15%);
+            --popover: hsl(0 0% 100%);
+            --popover-foreground: hsl(220 20% 15%);
+            --primary: hsl(188 85% 40%);
+            --primary-foreground: hsl(0 0% 98%);
+            --secondary: hsl(215 16% 47%);
+            --secondary-foreground: hsl(220 20% 15%);
+            --muted: hsl(210 40% 96%);
+            --muted-foreground: hsl(215 25% 35%);
+            --accent: hsl(162 93% 30%);
+            --accent-foreground: hsl(0 0% 98%);
+            --destructive: hsl(0 72% 51%);
+            --destructive-foreground: hsl(0 0% 98%);
+            --border: hsl(220 13% 91%);
+            --input: hsl(220 13% 91%);
+            --ring: hsl(188 85% 40%);
+            --radius: 8px;
+        }
+
+        body {
+            font-family: 'Inter', system-ui, sans-serif;
+        }
+        
+        .sidebar-nav button:focus {
+            outline: 3px solid var(--ring);
+            outline-offset: 2px;
+        }
+        
+        .emergency-pulse {
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.4); }
+            70% { box-shadow: 0 0 0 10px rgba(220, 38, 38, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0); }
+        }
+        
+        .medication-taken {
+            background: linear-gradient(135deg, var(--accent) 0%, hsl(162, 93%, 35%) 100%);
+        }
+        
+        .medication-missed {
+            background: linear-gradient(135deg, var(--destructive) 0%, hsl(0, 72%, 56%) 100%);
+        }
+    </style>
+</head>
+<body class="bg-background text-foreground min-h-screen">
+    <!-- @COMPONENT: AppLayout -->
+    <div class="flex min-h-screen">
+        <!-- Sidebar Navigation -->
+        <!-- @COMPONENT: Sidebar -->
+        <aside class="w-80 bg-card shadow-lg border-r border-border flex flex-col">
+            <div class="p-6 border-b border-border">
+                <div class="flex items-center space-x-3">
+                    <div class="w-12 h-12 bg-primary rounded-full flex items-center justify-center">
+                        <i class="fas fa-brain text-xl text-primary-foreground"></i>
+                    </div>
+                    <div>
+                        <h1 class="text-2xl font-semibold text-foreground">Memocare</h1>
+                        <p class="text-sm text-muted-foreground">Care Assistant</p>
+                    </div>
+                </div>
+            </div>
+            
+            <nav class="flex-1 p-4 space-y-2 sidebar-nav">
+                <button class="w-full flex items-center space-x-4 p-4 text-left rounded-lg bg-primary text-primary-foreground shadow-md" data-page="dashboard">
+                    <i class="fas fa-home text-2xl"></i>
+                    <span class="text-lg font-medium">Dashboard</span>
+                </button>
+                
+                <button class="w-full flex items-center space-x-4 p-4 text-left rounded-lg bg-muted hover:bg-accent hover:text-accent-foreground transition-all" data-page="reminders">
+                    <i class="fas fa-bell text-2xl"></i>
+                    <span class="text-lg font-medium">Reminders</span>
+                </button>
+                
+                <button class="w-full flex items-center space-x-4 p-4 text-left rounded-lg bg-muted hover:bg-accent hover:text-accent-foreground transition-all" data-page="medications">
+                    <i class="fas fa-pills text-2xl"></i>
+                    <span class="text-lg font-medium">Medications</span>
+                </button>
+                
+                <button class="w-full flex items-center space-x-4 p-4 text-left rounded-lg bg-muted hover:bg-accent hover:text-accent-foreground transition-all" data-page="contacts">
+                    <i class="fas fa-users text-2xl"></i>
+                    <span class="text-lg font-medium">People Cards</span>
+                </button>
+                
+                <button class="w-full flex items-center space-x-4 p-4 text-left rounded-lg bg-muted hover:bg-accent hover:text-accent-foreground transition-all" data-page="locations">
+                    <i class="fas fa-map-marker-alt text-2xl"></i>
+                    <span class="text-lg font-medium">Locations</span>
+                </button>
+                
+                <button class="w-full flex items-center space-x-4 p-4 text-left rounded-lg bg-muted hover:bg-accent hover:text-accent-foreground transition-all" data-page="journal">
+                    <i class="fas fa-book text-2xl"></i>
+                    <span class="text-lg font-medium">Journal</span>
+                </button>
+                
+                <button class="w-full flex items-center space-x-4 p-4 text-left rounded-lg bg-muted hover:bg-accent hover:text-accent-foreground transition-all" data-page="memory">
+                    <i class="fas fa-images text-2xl"></i>
+                    <span class="text-lg font-medium">Memory Wall</span>
+                </button>
+                
+                <button class="w-full flex items-center space-x-4 p-4 text-left rounded-lg bg-muted hover:bg-accent hover:text-accent-foreground transition-all" data-page="routines">
+                    <i class="fas fa-list-check text-2xl"></i>
+                    <span class="text-lg font-medium">Routines</span>
+                </button>
+                
+                <button class="w-full flex items-center space-x-4 p-4 text-left rounded-lg bg-muted hover:bg-accent hover:text-accent-foreground transition-all" data-page="games">
+                    <i class="fas fa-gamepad text-2xl"></i>
+                    <span class="text-lg font-medium">Memory Games</span>
+                </button>
+                
+                <button class="w-full flex items-center space-x-4 p-4 text-left rounded-lg bg-muted hover:bg-accent hover:text-accent-foreground transition-all" data-page="identify">
+                    <i class="fas fa-camera text-2xl"></i>
+                    <span class="text-lg font-medium">Identify</span>
+                </button>
+            </nav>
+            
+            <div class="p-4 border-t border-border">
+                <button class="w-full flex items-center space-x-4 p-4 text-left rounded-lg bg-destructive text-destructive-foreground shadow-md emergency-pulse" data-page="emergency">
+                    <i class="fas fa-exclamation-triangle text-2xl"></i>
+                    <span class="text-lg font-medium">Emergency</span>
+                </button>
+            </div>
+            
+            <div class="p-4 border-t border-border">
+                <div class="flex items-center space-x-3 p-2">
+                    <!-- Placeholder avatar - will be user's photo in real app -->
+                    <div class="w-10 h-10 bg-secondary rounded-full flex items-center justify-center">
+                        <i class="fas fa-user text-secondary-foreground"></i>
+                    </div>
+                    <div>
+                        <p class="font-medium text-foreground" data-bind="user.name">John Smith</p>
+                        <button class="text-sm text-muted-foreground hover:text-foreground" data-event="click:handleLogout">
+                            Sign out
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </aside>
+        <!-- @END_COMPONENT: Sidebar -->
+        
+        <!-- Main Content Area -->
+        <main class="flex-1 overflow-auto">
+            <!-- Dashboard Page -->
+            <!-- @COMPONENT: Dashboard -->
+            <div id="dashboard-page" class="page-content">
+                <div class="p-8">
+                    <div class="mb-8">
+                        <h2 class="text-4xl font-semibold text-foreground mb-2">Welcome back, <span data-bind="user.name">John</span>!</h2>
+                        <p class="text-xl text-muted-foreground">Today is <span data-bind="currentDate">Monday, December 16, 2024</span></p>
+                    </div>
+                    
+                    <!-- Quick Actions -->
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                        <button class="p-6 bg-accent text-accent-foreground rounded-xl shadow-lg hover:shadow-xl transition-shadow" data-event="click:startQuiz">
+                            <i class="fas fa-brain text-3xl mb-3"></i>
+                            <h3 class="text-xl font-semibold mb-2">Daily Memory Quiz</h3>
+                            <p class="text-accent-foreground/80">Test your memory with today's questions</p>
+                        </button>
+                        
+                        <button class="p-6 bg-primary text-primary-foreground rounded-xl shadow-lg hover:shadow-xl transition-shadow" data-event="click:addJournalEntry">
+                            <i class="fas fa-plus text-3xl mb-3"></i>
+                            <h3 class="text-xl font-semibold mb-2">Add Journal Entry</h3>
+                            <p class="text-primary-foreground/80">Record your thoughts and memories</p>
+                        </button>
+                        
+                        <button class="p-6 bg-destructive text-destructive-foreground rounded-xl shadow-lg hover:shadow-xl transition-shadow emergency-pulse" data-event="click:triggerEmergency">
+                            <i class="fas fa-exclamation-triangle text-3xl mb-3"></i>
+                            <h3 class="text-xl font-semibold mb-2">Emergency Help</h3>
+                            <p class="text-destructive-foreground/80">Get immediate assistance</p>
+                        </button>
+                    </div>
+                    
+                    <!-- Today's Overview -->
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                        <!-- Today's Reminders -->
+                        <div class="bg-card rounded-xl p-6 shadow-md border border-border">
+                            <div class="flex items-center justify-between mb-4">
+                                <h3 class="text-2xl font-semibold text-card-foreground">Today's Reminders</h3>
+                                <span class="bg-primary text-primary-foreground px-3 py-1 rounded-full text-sm font-medium">3 pending</span>
+                            </div>
+                            
+                            <!-- @MAP: todayReminders.map(reminder => ( -->
+                            <div class="space-y-3" data-mock="true">
+                                <div class="flex items-center p-3 bg-muted rounded-lg">
+                                    <div class="w-3 h-3 bg-accent rounded-full mr-4"></div>
+                                    <div class="flex-1">
+                                        <p class="font-medium text-card-foreground">Take morning medication</p>
+                                        <p class="text-sm text-muted-foreground">Due at 9:00 AM</p>
+                                    </div>
+                                    <button class="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm" data-event="click:markComplete">
+                                        Done
+                                    </button>
+                                </div>
+                                
+                                <div class="flex items-center p-3 bg-muted rounded-lg">
+                                    <div class="w-3 h-3 bg-secondary rounded-full mr-4"></div>
+                                    <div class="flex-1">
+                                        <p class="font-medium text-card-foreground">Doctor appointment</p>
+                                        <p class="text-sm text-muted-foreground">Today at 2:30 PM</p>
+                                    </div>
+                                    <button class="px-4 py-2 bg-accent text-accent-foreground rounded-lg text-sm" data-event="click:viewDetails">
+                                        View
+                                    </button>
+                                </div>
+                                
+                                <div class="flex items-center p-3 bg-muted rounded-lg">
+                                    <div class="w-3 h-3 bg-primary rounded-full mr-4"></div>
+                                    <div class="flex-1">
+                                        <p class="font-medium text-card-foreground">Call Sarah</p>
+                                        <p class="text-sm text-muted-foreground">Before 6:00 PM</p>
+                                    </div>
+                                    <button class="px-4 py-2 bg-secondary text-secondary-foreground rounded-lg text-sm" data-event="click:callContact">
+                                        Call
+                                    </button>
+                                </div>
+                            </div>
+                            <!-- @END_MAP )) -->
+                            
+                            <button class="w-full mt-4 p-3 border-2 border-dashed border-border rounded-lg text-muted-foreground hover:border-primary hover:text-primary transition-colors" data-event="click:addReminder">
+                                <i class="fas fa-plus mr-2"></i>Add New Reminder
+                            </button>
+                        </div>
+                        
+                        <!-- Medication Tracker -->
+                        <div class="bg-card rounded-xl p-6 shadow-md border border-border">
+                            <div class="flex items-center justify-between mb-4">
+                                <h3 class="text-2xl font-semibold text-card-foreground">Medication Tracker</h3>
+                                <span class="bg-accent text-accent-foreground px-3 py-1 rounded-full text-sm font-medium">On track</span>
+                            </div>
+                            
+                            <!-- @MAP: medications.map(med => ( -->
+                            <div class="space-y-4" data-mock="true">
+                                <div class="p-4 border border-border rounded-lg">
+                                    <div class="flex items-center justify-between mb-3">
+                                        <h4 class="font-semibold text-card-foreground">Aricept 10mg</h4>
+                                        <span class="text-sm text-muted-foreground">Daily at 9:00 AM</span>
+                                    </div>
+                                    <div class="flex space-x-2">
+                                        <div class="flex-1 grid grid-cols-7 gap-1">
+                                            <div class="w-8 h-8 rounded bg-accent flex items-center justify-center">
+                                                <i class="fas fa-check text-xs text-accent-foreground"></i>
+                                            </div>
+                                            <div class="w-8 h-8 rounded bg-accent flex items-center justify-center">
+                                                <i class="fas fa-check text-xs text-accent-foreground"></i>
+                                            </div>
+                                            <div class="w-8 h-8 rounded bg-destructive flex items-center justify-center">
+                                                <i class="fas fa-times text-xs text-destructive-foreground"></i>
+                                            </div>
+                                            <div class="w-8 h-8 rounded bg-accent flex items-center justify-center">
+                                                <i class="fas fa-check text-xs text-accent-foreground"></i>
+                                            </div>
+                                            <div class="w-8 h-8 rounded bg-accent flex items-center justify-center">
+                                                <i class="fas fa-check text-xs text-accent-foreground"></i>
+                                            </div>
+                                            <div class="w-8 h-8 rounded bg-accent flex items-center justify-center">
+                                                <i class="fas fa-check text-xs text-accent-foreground"></i>
+                                            </div>
+                                            <div class="w-8 h-8 rounded bg-border flex items-center justify-center">
+                                                <span class="text-xs text-muted-foreground">T</span>
+                                            </div>
+                                        </div>
+                                        <button class="px-4 py-2 bg-primary text-primary-foreground rounded-lg" data-event="click:logMedication">
+                                            Log Dose
+                                        </button>
+                                    </div>
+                                </div>
+                                
+                                <div class="p-4 border border-border rounded-lg">
+                                    <div class="flex items-center justify-between mb-3">
+                                        <h4 class="font-semibold text-card-foreground">Vitamin D</h4>
+                                        <span class="text-sm text-muted-foreground">Daily with breakfast</span>
+                                    </div>
+                                    <div class="flex space-x-2">
+                                        <div class="flex-1 grid grid-cols-7 gap-1">
+                                            <div class="w-8 h-8 rounded bg-accent flex items-center justify-center">
+                                                <i class="fas fa-check text-xs text-accent-foreground"></i>
+                                            </div>
+                                            <div class="w-8 h-8 rounded bg-accent flex items-center justify-center">
+                                                <i class="fas fa-check text-xs text-accent-foreground"></i>
+                                            </div>
+                                            <div class="w-8 h-8 rounded bg-accent flex items-center justify-center">
+                                                <i class="fas fa-check text-xs text-accent-foreground"></i>
+                                            </div>
+                                            <div class="w-8 h-8 rounded bg-accent flex items-center justify-center">
+                                                <i class="fas fa-check text-xs text-accent-foreground"></i>
+                                            </div>
+                                            <div class="w-8 h-8 rounded bg-accent flex items-center justify-center">
+                                                <i class="fas fa-check text-xs text-accent-foreground"></i>
+                                            </div>
+                                            <div class="w-8 h-8 rounded bg-accent flex items-center justify-center">
+                                                <i class="fas fa-check text-xs text-accent-foreground"></i>
+                                            </div>
+                                            <div class="w-8 h-8 rounded bg-border flex items-center justify-center">
+                                                <span class="text-xs text-muted-foreground">T</span>
+                                            </div>
+                                        </div>
+                                        <button class="px-4 py-2 bg-primary text-primary-foreground rounded-lg" data-event="click:logMedication">
+                                            Log Dose
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- @END_MAP )) -->
+                        </div>
+                    </div>
+                    
+                    <!-- Recent Activity & Memory Wall Preview -->
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-8">
+                        <!-- Recent Journal Entries -->
+                        <div class="bg-card rounded-xl p-6 shadow-md border border-border">
+                            <div class="flex items-center justify-between mb-4">
+                                <h3 class="text-2xl font-semibold text-card-foreground">Recent Journal Entries</h3>
+                                <button class="text-primary hover:text-primary/80" data-event="click:viewAllJournal">View All</button>
+                            </div>
+                            
+                            <!-- @MAP: recentJournalEntries.map(entry => ( -->
+                            <div class="space-y-4" data-mock="true">
+                                <div class="p-4 bg-muted rounded-lg">
+                                    <div class="flex items-center justify-between mb-2">
+                                        <span class="text-sm text-muted-foreground">Yesterday, 3:45 PM</span>
+                                        <i class="fas fa-microphone text-accent"></i>
+                                    </div>
+                                    <p class="text-card-foreground">"Had a wonderful lunch with Sarah today. We went to that Italian place downtown..."</p>
+                                </div>
+                                
+                                <div class="p-4 bg-muted rounded-lg">
+                                    <div class="flex items-center justify-between mb-2">
+                                        <span class="text-sm text-muted-foreground">2 days ago, 10:20 AM</span>
+                                        <i class="fas fa-keyboard text-primary"></i>
+                                    </div>
+                                    <p class="text-card-foreground">Feeling good today. Remembered to take my morning walk and saw the neighbors' new puppy.</p>
+                                </div>
+                                
+                                <div class="p-4 bg-muted rounded-lg">
+                                    <div class="flex items-center justify-between mb-2">
+                                        <span class="text-sm text-muted-foreground">3 days ago, 7:30 PM</span>
+                                        <i class="fas fa-microphone text-accent"></i>
+                                    </div>
+                                    <p class="text-card-foreground">"Called Michael tonight. He told me about his new job. Very proud of him..."</p>
+                                </div>
+                            </div>
+                            <!-- @END_MAP )) -->
+                        </div>
+                        
+                        <!-- Memory Wall Preview -->
+                        <div class="bg-card rounded-xl p-6 shadow-md border border-border">
+                            <div class="flex items-center justify-between mb-4">
+                                <h3 class="text-2xl font-semibold text-card-foreground">Memory Wall</h3>
+                                <button class="text-primary hover:text-primary/80" data-event="click:viewMemoryWall">View All</button>
+                            </div>
+                            
+                            <div class="grid grid-cols-3 gap-3">
+                                <!-- Family photo showing three people at a birthday party -->
+                                <div class="relative aspect-square rounded-lg overflow-hidden group cursor-pointer" data-event="click:viewMemory">
+                                    <img src="https://images.unsplash.com/photo-1511895426328-dc8714191300?ixlib=rb-4.0.3&auto=format&fit=crop&w=300&h=300" 
+                                         alt="Family birthday celebration" 
+                                         class="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                                    <div class="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-end p-2">
+                                        <span class="text-white text-xs opacity-0 group-hover:opacity-100">Birthday party</span>
+                                    </div>
+                                </div>
+                                
+                                <!-- Beautiful garden with colorful flowers -->
+                                <div class="relative aspect-square rounded-lg overflow-hidden group cursor-pointer" data-event="click:viewMemory">
+                                    <img src="https://images.unsplash.com/photo-1416879595882-3373a0480b5b?ixlib=rb-4.0.3&auto=format&fit=crop&w=300&h=300" 
+                                         alt="Colorful garden flowers" 
+                                         class="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                                    <div class="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-end p-2">
+                                        <span class="text-white text-xs opacity-0 group-hover:opacity-100">Garden</span>
+                                    </div>
+                                </div>
+                                
+                                <!-- Elderly couple walking in a park -->
+                                <div class="relative aspect-square rounded-lg overflow-hidden group cursor-pointer" data-event="click:viewMemory">
+                                    <img src="https://images.unsplash.com/photo-1582750433449-648ed127bb54?ixlib=rb-4.0.3&auto=format&fit=crop&w=300&h=300" 
+                                         alt="Couple walking in park" 
+                                         class="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                                    <div class="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-end p-2">
+                                        <span class="text-white text-xs opacity-0 group-hover:opacity-100">Park walk</span>
+                                    </div>
+                                </div>
+                                
+                                <!-- Old family photograph in sepia tones -->
+                                <div class="relative aspect-square rounded-lg overflow-hidden group cursor-pointer" data-event="click:viewMemory">
+                                    <img src="https://images.unsplash.com/photo-1606092195730-5d7b9af1efc5?ixlib=rb-4.0.3&auto=format&fit=crop&w=300&h=300" 
+                                         alt="Vintage family portrait" 
+                                         class="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                                    <div class="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-end p-2">
+                                        <span class="text-white text-xs opacity-0 group-hover:opacity-100">Old memories</span>
+                                    </div>
+                                </div>
+                                
+                                <!-- Pet dog playing in the yard -->
+                                <div class="relative aspect-square rounded-lg overflow-hidden group cursor-pointer" data-event="click:viewMemory">
+                                    <img src="https://images.unsplash.com/photo-1552053831-71594a27632d?ixlib=rb-4.0.3&auto=format&fit=crop&w=300&h=300" 
+                                         alt="Golden retriever playing" 
+                                         class="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                                    <div class="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-end p-2">
+                                        <span class="text-white text-xs opacity-0 group-hover:opacity-100">Max playing</span>
+                                    </div>
+                                </div>
+                                
+                                <!-- Upload new memory button -->
+                                <div class="relative aspect-square rounded-lg border-2 border-dashed border-border bg-muted flex items-center justify-center cursor-pointer hover:border-primary hover:bg-primary/10 transition-colors group" data-event="click:uploadMemory">
+                                    <div class="text-center">
+                                        <i class="fas fa-plus text-2xl text-muted-foreground group-hover:text-primary mb-2"></i>
+                                        <p class="text-sm text-muted-foreground group-hover:text-primary">Add Memory</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <!-- @END_COMPONENT: Dashboard -->
+            
+            <!-- Memory Quiz Game Page -->
+            <!-- @COMPONENT: MemoryQuiz -->
+            <div id="quiz-page" class="page-content hidden">
+                <div class="p-8">
+                    <div class="max-w-4xl mx-auto">
+                        <div class="mb-8 text-center">
+                            <h2 class="text-4xl font-semibold text-foreground mb-4">Daily Memory Quiz</h2>
+                            <p class="text-xl text-muted-foreground">Test your memory with questions about your life</p>
+                        </div>
+                        
+                        <!-- Quiz Progress -->
+                        <div class="bg-card rounded-xl p-6 shadow-md border border-border mb-8">
+                            <div class="flex items-center justify-between mb-4">
+                                <h3 class="text-2xl font-semibold">Question 3 of 6</h3>
+                                <div class="flex space-x-2">
+                                    <div class="w-4 h-4 rounded-full bg-accent"></div>
+                                    <div class="w-4 h-4 rounded-full bg-accent"></div>
+                                    <div class="w-4 h-4 rounded-full bg-primary"></div>
+                                    <div class="w-4 h-4 rounded-full bg-muted"></div>
+                                    <div class="w-4 h-4 rounded-full bg-muted"></div>
+                                    <div class="w-4 h-4 rounded-full bg-muted"></div>
+                                </div>
+                            </div>
+                            <div class="w-full bg-muted rounded-full h-3">
+                                <div class="bg-primary h-3 rounded-full transition-all duration-300" style="width: 50%"></div>
+                            </div>
+                        </div>
+                        
+                        <!-- Quiz Question -->
+                        <div class="bg-card rounded-xl p-8 shadow-md border border-border mb-8">
+                            <div class="text-center mb-8">
+                                <!-- Question about a family member with their photo -->
+                                <div class="w-32 h-32 mx-auto mb-6 rounded-full overflow-hidden">
+                                    <img src="https://images.unsplash.com/photo-1438761681033-6461ffad8d80?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=400" 
+                                         alt="Woman in professional attire" 
+                                         class="w-full h-full object-cover" />
+                                </div>
+                                <h3 class="text-3xl font-semibold text-card-foreground mb-4">Who is this person?</h3>
+                                <p class="text-lg text-muted-foreground">Select the correct relationship</p>
+                            </div>
+                            
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <button class="p-6 border-2 border-border rounded-xl text-left hover:border-primary hover:bg-primary/5 transition-all" data-event="click:selectAnswer" data-answer="daughter">
+                                    <div class="flex items-center space-x-4">
+                                        <div class="w-6 h-6 rounded-full border-2 border-muted-foreground"></div>
+                                        <span class="text-xl">My Daughter</span>
+                                    </div>
+                                </button>
+                                
+                                <button class="p-6 border-2 border-primary bg-primary/5 rounded-xl text-left transition-all" data-event="click:selectAnswer" data-answer="niece">
+                                    <div class="flex items-center space-x-4">
+                                        <div class="w-6 h-6 rounded-full bg-primary border-2 border-primary flex items-center justify-center">
+                                            <div class="w-2 h-2 rounded-full bg-primary-foreground"></div>
+                                        </div>
+                                        <span class="text-xl">My Niece</span>
+                                    </div>
+                                </button>
+                                
+                                <button class="p-6 border-2 border-border rounded-xl text-left hover:border-primary hover:bg-primary/5 transition-all" data-event="click:selectAnswer" data-answer="friend">
+                                    <div class="flex items-center space-x-4">
+                                        <div class="w-6 h-6 rounded-full border-2 border-muted-foreground"></div>
+                                        <span class="text-xl">Family Friend</span>
+                                    </div>
+                                </button>
+                                
+                                <button class="p-6 border-2 border-border rounded-xl text-left hover:border-primary hover:bg-primary/5 transition-all" data-event="click:selectAnswer" data-answer="neighbor">
+                                    <div class="flex items-center space-x-4">
+                                        <div class="w-6 h-6 rounded-full border-2 border-muted-foreground"></div>
+                                        <span class="text-xl">My Neighbor</span>
+                                    </div>
+                                </button>
+                            </div>
+                            
+                            <div class="flex justify-between mt-8">
+                                <button class="px-8 py-3 bg-secondary text-secondary-foreground rounded-lg text-lg" data-event="click:previousQuestion">
+                                    <i class="fas fa-arrow-left mr-2"></i>Previous
+                                </button>
+                                <button class="px-8 py-3 bg-primary text-primary-foreground rounded-lg text-lg" data-event="click:nextQuestion">
+                                    Next<i class="fas fa-arrow-right ml-2"></i>
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <!-- Quiz Results Preview -->
+                        <div class="bg-card rounded-xl p-8 shadow-md border border-border text-center">
+                            <div class="w-16 h-16 bg-accent rounded-full flex items-center justify-center mx-auto mb-4">
+                                <i class="fas fa-trophy text-2xl text-accent-foreground"></i>
+                            </div>
+                            <h3 class="text-2xl font-semibold text-card-foreground mb-2">Great job!</h3>
+                            <p class="text-lg text-muted-foreground mb-6">You answered 5 out of 6 questions correctly</p>
+                            
+                            <div class="grid grid-cols-3 gap-6 mb-6">
+                                <div class="text-center">
+                                    <div class="text-3xl font-bold text-accent">83%</div>
+                                    <div class="text-sm text-muted-foreground">Score</div>
+                                </div>
+                                <div class="text-center">
+                                    <div class="text-3xl font-bold text-primary">5/6</div>
+                                    <div class="text-sm text-muted-foreground">Correct</div>
+                                </div>
+                                <div class="text-center">
+                                    <div class="text-3xl font-bold text-secondary">2:30</div>
+                                    <div class="text-sm text-muted-foreground">Time</div>
+                                </div>
+                            </div>
+                            
+                            <button class="px-8 py-3 bg-primary text-primary-foreground rounded-lg text-lg mr-4" data-event="click:retakeQuiz">
+                                Try Again
+                            </button>
+                            <button class="px-8 py-3 bg-accent text-accent-foreground rounded-lg text-lg" data-event="click:backToDashboard">
+                                Back to Dashboard
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <!-- @END_COMPONENT: MemoryQuiz -->
+            
+            <!-- People Cards/Contacts Page -->
+            <!-- @COMPONENT: PeopleCards -->
+            <div id="contacts-page" class="page-content hidden">
+                <div class="p-8">
+                    <div class="mb-8 flex items-center justify-between">
+                        <div>
+                            <h2 class="text-4xl font-semibold text-foreground mb-2">People Cards</h2>
+                            <p class="text-xl text-muted-foreground">Keep track of important people in your life</p>
+                        </div>
+                        <button class="px-6 py-3 bg-primary text-primary-foreground rounded-lg text-lg shadow-md hover:shadow-lg" data-event="click:addContact">
+                            <i class="fas fa-plus mr-2"></i>Add Person
+                        </button>
+                    </div>
+                    
+                    <!-- Search and Filter -->
+                    <div class="mb-8 flex flex-col md:flex-row gap-4">
+                        <div class="flex-1">
+                            <input type="text" placeholder="Search people..." 
+                                   class="w-full p-4 text-lg border border-input rounded-lg bg-background focus:ring-2 focus:ring-ring focus:border-transparent" 
+                                   data-event="input:handleSearch" />
+                        </div>
+                        <select class="p-4 text-lg border border-input rounded-lg bg-background focus:ring-2 focus:ring-ring" data-event="change:filterByRelation">
+                            <option value="all">All Relations</option>
+                            <option value="family">Family</option>
+                            <option value="friend">Friends</option>
+                            <option value="doctor">Medical</option>
+                            <option value="neighbor">Neighbors</option>
+                        </select>
+                    </div>
+                    
+                    <!-- People Cards Grid -->
+                    <!-- @MAP: contacts.map(contact => ( -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" data-mock="true">
+                        <!-- Family Member Card -->
+                        <div class="bg-card rounded-xl p-6 shadow-md border border-border hover:shadow-lg transition-shadow">
+                            <div class="text-center mb-4">
+                                <!-- Portrait of a middle-aged woman with kind eyes -->
+                                <div class="w-24 h-24 mx-auto mb-4 rounded-full overflow-hidden">
+                                    <img src="https://pixabay.com/get/g5c731fe8bbb6b910a49ab2b17ff8afa9627ca845550ca21f38253f31f6172b200a939460ff50edf7d716eb4e66c0339d53583f3083ca2d63aaae62ee6956cf58_1280.jpg" 
+                                         alt="Sarah Miller portrait" 
+                                         class="w-full h-full object-cover" />
+                                </div>
+                                <h3 class="text-2xl font-semibold text-card-foreground">Sarah Miller</h3>
+                                <span class="inline-block px-3 py-1 bg-accent text-accent-foreground rounded-full text-sm font-medium">Daughter</span>
+                            </div>
+                            
+                            <div class="space-y-3 mb-6">
+                                <div class="flex items-center space-x-3">
+                                    <i class="fas fa-phone text-primary"></i>
+                                    <span class="text-muted-foreground">(555) 123-4567</span>
+                                </div>
+                                <div class="flex items-center space-x-3">
+                                    <i class="fas fa-envelope text-primary"></i>
+                                    <span class="text-muted-foreground">sarah@email.com</span>
+                                </div>
+                                <div class="flex items-center space-x-3">
+                                    <i class="fas fa-calendar text-primary"></i>
+                                    <span class="text-muted-foreground">Last called: Yesterday</span>
+                                </div>
+                            </div>
+                            
+                            <div class="flex space-x-2">
+                                <button class="flex-1 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90" data-event="click:callContact">
+                                    <i class="fas fa-phone mr-2"></i>Call
+                                </button>
+                                <button class="flex-1 px-4 py-2 bg-accent text-accent-foreground rounded-lg hover:bg-accent/90" data-event="click:emailContact">
+                                    <i class="fas fa-envelope mr-2"></i>Email
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <!-- Doctor Card -->
+                        <div class="bg-card rounded-xl p-6 shadow-md border border-border hover:shadow-lg transition-shadow">
+                            <div class="text-center mb-4">
+                                <!-- Professional headshot of a doctor in medical coat -->
+                                <div class="w-24 h-24 mx-auto mb-4 rounded-full overflow-hidden">
+                                    <img src="https://images.unsplash.com/photo-1582750433449-648ed127bb54?ixlib=rb-4.0.3&auto=format&fit=crop&w=300&h=300" 
+                                         alt="Dr. Johnson portrait" 
+                                         class="w-full h-full object-cover" />
+                                </div>
+                                <h3 class="text-2xl font-semibold text-card-foreground">Dr. Johnson</h3>
+                                <span class="inline-block px-3 py-1 bg-primary text-primary-foreground rounded-full text-sm font-medium">Doctor</span>
+                            </div>
+                            
+                            <div class="space-y-3 mb-6">
+                                <div class="flex items-center space-x-3">
+                                    <i class="fas fa-phone text-primary"></i>
+                                    <span class="text-muted-foreground">(555) 987-6543</span>
+                                </div>
+                                <div class="flex items-center space-x-3">
+                                    <i class="fas fa-hospital text-primary"></i>
+                                    <span class="text-muted-foreground">Memory Care Clinic</span>
+                                </div>
+                                <div class="flex items-center space-x-3">
+                                    <i class="fas fa-calendar text-primary"></i>
+                                    <span class="text-muted-foreground">Next visit: Dec 20</span>
+                                </div>
+                            </div>
+                            
+                            <div class="flex space-x-2">
+                                <button class="flex-1 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90" data-event="click:callContact">
+                                    <i class="fas fa-phone mr-2"></i>Call
+                                </button>
+                                <button class="flex-1 px-4 py-2 bg-secondary text-secondary-foreground rounded-lg hover:bg-secondary/90" data-event="click:viewDetails">
+                                    <i class="fas fa-info mr-2"></i>Details
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <!-- Friend Card -->
+                        <div class="bg-card rounded-xl p-6 shadow-md border border-border hover:shadow-lg transition-shadow">
+                            <div class="text-center mb-4">
+                                <!-- Friendly elderly man with a warm smile -->
+                                <div class="w-24 h-24 mx-auto mb-4 rounded-full overflow-hidden">
+                                    <img src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?ixlib=rb-4.0.3&auto=format&fit=crop&w=300&h=300" 
+                                         alt="Robert Thompson portrait" 
+                                         class="w-full h-full object-cover" />
+                                </div>
+                                <h3 class="text-2xl font-semibold text-card-foreground">Robert Thompson</h3>
+                                <span class="inline-block px-3 py-1 bg-secondary text-secondary-foreground rounded-full text-sm font-medium">Friend</span>
+                            </div>
+                            
+                            <div class="space-y-3 mb-6">
+                                <div class="flex items-center space-x-3">
+                                    <i class="fas fa-phone text-primary"></i>
+                                    <span class="text-muted-foreground">(555) 456-7890</span>
+                                </div>
+                                <div class="flex items-center space-x-3">
+                                    <i class="fas fa-home text-primary"></i>
+                                    <span class="text-muted-foreground">Next door neighbor</span>
+                                </div>
+                                <div class="flex items-center space-x-3">
+                                    <i class="fas fa-calendar text-primary"></i>
+                                    <span class="text-muted-foreground">Met: Last week</span>
+                                </div>
+                            </div>
+                            
+                            <div class="flex space-x-2">
+                                <button class="flex-1 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90" data-event="click:callContact">
+                                    <i class="fas fa-phone mr-2"></i>Call
+                                </button>
+                                <button class="flex-1 px-4 py-2 bg-accent text-accent-foreground rounded-lg hover:bg-accent/90" data-event="click:visitContact">
+                                    <i class="fas fa-home mr-2"></i>Visit
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <!-- Add New Contact Card -->
+                        <div class="bg-card rounded-xl p-6 shadow-md border-2 border-dashed border-border hover:border-primary hover:bg-primary/5 transition-all cursor-pointer" data-event="click:addContact">
+                            <div class="text-center py-8">
+                                <i class="fas fa-plus text-4xl text-muted-foreground mb-4"></i>
+                                <h3 class="text-xl font-semibold text-card-foreground mb-2">Add New Person</h3>
+                                <p class="text-muted-foreground">Create a new contact card</p>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- @END_MAP )) -->
+                </div>
+            </div>
+            <!-- @END_COMPONENT: PeopleCards -->
+            
+            <!-- Journal Page -->
+            <!-- @COMPONENT: Journal -->
+            <div id="journal-page" class="page-content hidden">
+                <div class="p-8">
+                    <div class="mb-8 flex items-center justify-between">
+                        <div>
+                            <h2 class="text-4xl font-semibold text-foreground mb-2">Personal Journal</h2>
+                            <p class="text-xl text-muted-foreground">Record your thoughts, memories, and daily experiences</p>
+                        </div>
+                        <button class="px-6 py-3 bg-primary text-primary-foreground rounded-lg text-lg shadow-md hover:shadow-lg" data-event="click:newJournalEntry">
+                            <i class="fas fa-plus mr-2"></i>New Entry
+                        </button>
+                    </div>
+                    
+                    <!-- New Entry Form -->
+                    <div class="bg-card rounded-xl p-6 shadow-md border border-border mb-8">
+                        <h3 class="text-2xl font-semibold text-card-foreground mb-4">Write New Entry</h3>
+                        
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-lg font-medium text-card-foreground mb-2">Entry Type</label>
+                                <div class="flex space-x-4">
+                                    <button class="flex-1 p-4 border-2 border-primary bg-primary text-primary-foreground rounded-lg text-center" data-event="click:selectTextEntry">
+                                        <i class="fas fa-keyboard text-2xl mb-2"></i>
+                                        <div>Text Entry</div>
+                                    </button>
+                                    <button class="flex-1 p-4 border-2 border-border hover:border-accent hover:text-accent transition-colors rounded-lg text-center" data-event="click:selectVoiceEntry">
+                                        <i class="fas fa-microphone text-2xl mb-2"></i>
+                                        <div>Voice Entry</div>
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <!-- Text Entry Area -->
+                            <div>
+                                <label class="block text-lg font-medium text-card-foreground mb-2">Your thoughts</label>
+                                <textarea 
+                                    placeholder="What would you like to remember about today?"
+                                    class="w-full h-40 p-4 text-lg border border-input rounded-lg bg-background focus:ring-2 focus:ring-ring focus:border-transparent resize-none"
+                                    data-event="input:handleTextInput"
+                                    data-mock="true">Today was a wonderful day. I had lunch with Sarah and we talked about her new job. The weather was perfect for a walk in the park afterward.</textarea>
+                            </div>
+                            
+                            <!-- Voice Recording Controls -->
+                            <div class="hidden" id="voice-controls" data-functionality="Voice-to-text using Web Speech API">
+                                <div class="bg-muted p-6 rounded-lg text-center">
+                                    <div class="mb-4">
+                                        <div class="w-16 h-16 bg-destructive rounded-full mx-auto flex items-center justify-center">
+                                            <i class="fas fa-microphone text-2xl text-destructive-foreground"></i>
+                                        </div>
+                                    </div>
+                                    <p class="text-lg text-card-foreground mb-4">Recording... Speak clearly</p>
+                                    <div class="flex justify-center space-x-4">
+                                        <button class="px-6 py-3 bg-destructive text-destructive-foreground rounded-lg" data-event="click:stopRecording">
+                                            <i class="fas fa-stop mr-2"></i>Stop
+                                        </button>
+                                        <button class="px-6 py-3 bg-secondary text-secondary-foreground rounded-lg" data-event="click:pauseRecording">
+                                            <i class="fas fa-pause mr-2"></i>Pause
+                                        </button>
+                                    </div>
+                                    <p class="text-sm text-muted-foreground mt-4">Transcription: "Today I went to the market and bought fresh flowers..."</p>
+                                </div>
+                            </div>
+                            
+                            <div class="flex space-x-4">
+                                <button class="px-8 py-3 bg-primary text-primary-foreground rounded-lg text-lg" data-event="click:saveEntry">
+                                    <i class="fas fa-save mr-2"></i>Save Entry
+                                </button>
+                                <button class="px-8 py-3 bg-secondary text-secondary-foreground rounded-lg text-lg" data-event="click:cancelEntry">
+                                    Cancel
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Recent Entries -->
+                    <div class="space-y-6">
+                        <h3 class="text-2xl font-semibold text-foreground">Recent Entries</h3>
+                        
+                        <!-- @MAP: journalEntries.map(entry => ( -->
+                        <div data-mock="true">
+                            <!-- Text Entry -->
+                            <div class="bg-card rounded-xl p-6 shadow-md border border-border">
+                                <div class="flex items-center justify-between mb-4">
+                                    <div class="flex items-center space-x-3">
+                                        <i class="fas fa-keyboard text-primary"></i>
+                                        <span class="text-lg font-medium text-card-foreground">Text Entry</span>
+                                    </div>
+                                    <div class="text-muted-foreground">Today, 2:30 PM</div>
+                                </div>
+                                <p class="text-lg text-card-foreground leading-relaxed mb-4">
+                                    Had a lovely afternoon tea with Margaret from next door. She brought her homemade cookies and we sat in the garden watching the birds. 
+                                    I should remember to water the roses tomorrow - they're looking a bit dry. The weather forecast says it might rain this weekend, which would be perfect.
+                                </p>
+                                <div class="flex space-x-2">
+                                    <button class="px-4 py-2 bg-secondary text-secondary-foreground rounded-lg text-sm" data-event="click:editEntry">
+                                        <i class="fas fa-edit mr-1"></i>Edit
+                                    </button>
+                                    <button class="px-4 py-2 bg-muted text-muted-foreground rounded-lg text-sm" data-event="click:deleteEntry">
+                                        <i class="fas fa-trash mr-1"></i>Delete
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <!-- Voice Entry -->
+                            <div class="bg-card rounded-xl p-6 shadow-md border border-border">
+                                <div class="flex items-center justify-between mb-4">
+                                    <div class="flex items-center space-x-3">
+                                        <i class="fas fa-microphone text-accent"></i>
+                                        <span class="text-lg font-medium text-card-foreground">Voice Entry</span>
+                                        <span class="text-sm text-muted-foreground">(3:45 duration)</span>
+                                    </div>
+                                    <div class="text-muted-foreground">Yesterday, 7:15 PM</div>
+                                </div>
+                                
+                                <!-- Audio Player -->
+                                <div class="bg-muted p-4 rounded-lg mb-4">
+                                    <div class="flex items-center space-x-4">
+                                        <button class="w-12 h-12 bg-primary text-primary-foreground rounded-full flex items-center justify-center" data-event="click:playAudio">
+                                            <i class="fas fa-play"></i>
+                                        </button>
+                                        <div class="flex-1">
+                                            <div class="bg-background rounded-full h-2 mb-2">
+                                                <div class="bg-primary h-2 rounded-full" style="width: 30%"></div>
+                                            </div>
+                                            <div class="text-sm text-muted-foreground">1:10 / 3:45</div>
+                                        </div>
+                                        <button class="px-3 py-1 bg-secondary text-secondary-foreground rounded text-sm" data-event="click:downloadAudio">
+                                            <i class="fas fa-download"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                                
+                                <!-- Transcription -->
+                                <div class="bg-background p-4 rounded-lg mb-4">
+                                    <h4 class="font-medium text-card-foreground mb-2">Transcription:</h4>
+                                    <p class="text-card-foreground leading-relaxed">
+                                        "Called Michael today and he told me about his promotion at work. I'm so proud of him. 
+                                        He's working as a software engineer now at that big tech company. I should remember to 
+                                        send him a congratulations card. Maybe I'll ask Sarah to help me pick one out when she visits this weekend."
+                                    </p>
+                                </div>
+                                
+                                <div class="flex space-x-2">
+                                    <button class="px-4 py-2 bg-secondary text-secondary-foreground rounded-lg text-sm" data-event="click:editTranscription">
+                                        <i class="fas fa-edit mr-1"></i>Edit Transcription
+                                    </button>
+                                    <button class="px-4 py-2 bg-muted text-muted-foreground rounded-lg text-sm" data-event="click:deleteEntry">
+                                        <i class="fas fa-trash mr-1"></i>Delete
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- @END_MAP )) -->
+                    </div>
+                </div>
+            </div>
+            <!-- @END_COMPONENT: Journal -->
+            
+            <!-- Memory Wall Page -->
+            <!-- @COMPONENT: MemoryWall -->
+            <div id="memory-page" class="page-content hidden">
+                <div class="p-8">
+                    <div class="mb-8 flex items-center justify-between">
+                        <div>
+                            <h2 class="text-4xl font-semibold text-foreground mb-2">Memory Wall</h2>
+                            <p class="text-xl text-muted-foreground">Your collection of precious moments and memories</p>
+                        </div>
+                        <button class="px-6 py-3 bg-primary text-primary-foreground rounded-lg text-lg shadow-md hover:shadow-lg" data-event="click:uploadMemory">
+                            <i class="fas fa-plus mr-2"></i>Add Memory
+                        </button>
+                    </div>
+                    
+                    <!-- Upload and Filter Controls -->
+                    <div class="bg-card rounded-xl p-6 shadow-md border border-border mb-8">
+                        <div class="flex flex-col md:flex-row gap-4 items-center">
+                            <div class="flex-1">
+                                <input type="text" placeholder="Search memories by title or tag..." 
+                                       class="w-full p-4 text-lg border border-input rounded-lg bg-background focus:ring-2 focus:ring-ring focus:border-transparent" 
+                                       data-event="input:handleSearch" />
+                            </div>
+                            <select class="p-4 text-lg border border-input rounded-lg bg-background focus:ring-2 focus:ring-ring" data-event="change:filterByType">
+                                <option value="all">All Types</option>
+                                <option value="photo">Photos</option>
+                                <option value="video">Videos</option>
+                                <option value="audio">Audio</option>
+                            </select>
+                            <select class="p-4 text-lg border border-input rounded-lg bg-background focus:ring-2 focus:ring-ring" data-event="change:filterByTag">
+                                <option value="all">All Tags</option>
+                                <option value="family">Family</option>
+                                <option value="friends">Friends</option>
+                                <option value="travel">Travel</option>
+                                <option value="celebrations">Celebrations</option>
+                                <option value="pets">Pets</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <!-- Memory Grid -->
+                    <!-- @MAP: memories.map(memory => ( -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6" data-mock="true">
+                        <!-- Photo Memory -->
+                        <div class="bg-card rounded-xl overflow-hidden shadow-md hover:shadow-lg transition-shadow group">
+                            <!-- Family gathering around dinner table -->
+                            <div class="relative aspect-square overflow-hidden">
+                                <img src="https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?ixlib=rb-4.0.3&auto=format&fit=crop&w=500&h=500" 
+                                     alt="Family dinner gathering" 
+                                     class="w-full h-full object-cover group-hover:scale-105 transition-transform cursor-pointer" 
+                                     data-event="click:viewMemory" />
+                                <div class="absolute top-2 right-2 bg-black/50 rounded-full p-2">
+                                    <i class="fas fa-camera text-white text-sm"></i>
+                                </div>
+                            </div>
+                            <div class="p-4">
+                                <h3 class="font-semibold text-card-foreground mb-2">Family Dinner</h3>
+                                <div class="flex flex-wrap gap-1 mb-3">
+                                    <span class="px-2 py-1 bg-accent text-accent-foreground text-xs rounded-full">family</span>
+                                    <span class="px-2 py-1 bg-secondary text-secondary-foreground text-xs rounded-full">celebration</span>
+                                </div>
+                                <p class="text-sm text-muted-foreground">Added 3 days ago</p>
+                            </div>
+                        </div>
+                        
+                        <!-- Video Memory -->
+                        <div class="bg-card rounded-xl overflow-hidden shadow-md hover:shadow-lg transition-shadow group">
+                            <!-- Birthday cake with candles being blown out -->
+                            <div class="relative aspect-square overflow-hidden">
+                                <img src="https://images.unsplash.com/photo-1558636508-e0db3814bd1d?ixlib=rb-4.0.3&auto=format&fit=crop&w=500&h=500" 
+                                     alt="Birthday cake with lit candles" 
+                                     class="w-full h-full object-cover group-hover:scale-105 transition-transform cursor-pointer" 
+                                     data-event="click:viewMemory" />
+                                <div class="absolute top-2 right-2 bg-black/50 rounded-full p-2">
+                                    <i class="fas fa-video text-white text-sm"></i>
+                                </div>
+                                <div class="absolute inset-0 flex items-center justify-center">
+                                    <div class="w-16 h-16 bg-black/50 rounded-full flex items-center justify-center">
+                                        <i class="fas fa-play text-white text-2xl"></i>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="p-4">
+                                <h3 class="font-semibold text-card-foreground mb-2">85th Birthday</h3>
+                                <div class="flex flex-wrap gap-1 mb-3">
+                                    <span class="px-2 py-1 bg-accent text-accent-foreground text-xs rounded-full">birthday</span>
+                                    <span class="px-2 py-1 bg-primary text-primary-foreground text-xs rounded-full">celebration</span>
+                                </div>
+                                <p class="text-sm text-muted-foreground">Added 1 week ago • 2:30</p>
+                            </div>
+                        </div>
+                        
+                        <!-- Garden Photo -->
+                        <div class="bg-card rounded-xl overflow-hidden shadow-md hover:shadow-lg transition-shadow group">
+                            <!-- Blooming flower garden with colorful roses -->
+                            <div class="relative aspect-square overflow-hidden">
+                                <img src="https://images.unsplash.com/photo-1416879595882-3373a0480b5b?ixlib=rb-4.0.3&auto=format&fit=crop&w=500&h=500" 
+                                     alt="Colorful rose garden in bloom" 
+                                     class="w-full h-full object-cover group-hover:scale-105 transition-transform cursor-pointer" 
+                                     data-event="click:viewMemory" />
+                                <div class="absolute top-2 right-2 bg-black/50 rounded-full p-2">
+                                    <i class="fas fa-camera text-white text-sm"></i>
+                                </div>
+                            </div>
+                            <div class="p-4">
+                                <h3 class="font-semibold text-card-foreground mb-2">Spring Garden</h3>
+                                <div class="flex flex-wrap gap-1 mb-3">
+                                    <span class="px-2 py-1 bg-accent text-accent-foreground text-xs rounded-full">garden</span>
+                                    <span class="px-2 py-1 bg-secondary text-secondary-foreground text-xs rounded-full">flowers</span>
+                                </div>
+                                <p class="text-sm text-muted-foreground">Added 5 days ago</p>
+                            </div>
+                        </div>
+                        
+                        <!-- Pet Photo -->
+                        <div class="bg-card rounded-xl overflow-hidden shadow-md hover:shadow-lg transition-shadow group">
+                            <!-- Golden retriever playing with a ball in the yard -->
+                            <div class="relative aspect-square overflow-hidden">
+                                <img src="https://images.unsplash.com/photo-1552053831-71594a27632d?ixlib=rb-4.0.3&auto=format&fit=crop&w=500&h=500" 
+                                     alt="Golden retriever playing with ball" 
+                                     class="w-full h-full object-cover group-hover:scale-105 transition-transform cursor-pointer" 
+                                     data-event="click:viewMemory" />
+                                <div class="absolute top-2 right-2 bg-black/50 rounded-full p-2">
+                                    <i class="fas fa-camera text-white text-sm"></i>
+                                </div>
+                            </div>
+                            <div class="p-4">
+                                <h3 class="font-semibold text-card-foreground mb-2">Max Playing</h3>
+                                <div class="flex flex-wrap gap-1 mb-3">
+                                    <span class="px-2 py-1 bg-accent text-accent-foreground text-xs rounded-full">pets</span>
+                                    <span class="px-2 py-1 bg-primary text-primary-foreground text-xs rounded-full">outdoor</span>
+                                </div>
+                                <p class="text-sm text-muted-foreground">Added 2 weeks ago</p>
+                            </div>
+                        </div>
+                        
+                        <!-- Audio Memory -->
+                        <div class="bg-card rounded-xl overflow-hidden shadow-md hover:shadow-lg transition-shadow group">
+                            <div class="relative aspect-square overflow-hidden bg-gradient-to-br from-primary to-accent flex items-center justify-center">
+                                <div class="text-center">
+                                    <i class="fas fa-microphone text-6xl text-white mb-4"></i>
+                                    <div class="text-white font-semibold">Audio Recording</div>
+                                </div>
+                                <div class="absolute top-2 right-2 bg-black/50 rounded-full p-2">
+                                    <i class="fas fa-music text-white text-sm"></i>
+                                </div>
+                            </div>
+                            <div class="p-4">
+                                <h3 class="font-semibold text-card-foreground mb-2">Piano Practice</h3>
+                                <div class="flex flex-wrap gap-1 mb-3">
+                                    <span class="px-2 py-1 bg-accent text-accent-foreground text-xs rounded-full">music</span>
+                                    <span class="px-2 py-1 bg-secondary text-secondary-foreground text-xs rounded-full">hobby</span>
+                                </div>
+                                <p class="text-sm text-muted-foreground">Added 4 days ago • 5:20</p>
+                            </div>
+                        </div>
+                        
+                        <!-- Old Family Photo -->
+                        <div class="bg-card rounded-xl overflow-hidden shadow-md hover:shadow-lg transition-shadow group">
+                            <!-- Vintage family portrait in sepia tones -->
+                            <div class="relative aspect-square overflow-hidden">
+                                <img src="https://images.unsplash.com/photo-1606092195730-5d7b9af1efc5?ixlib=rb-4.0.3&auto=format&fit=crop&w=500&h=500" 
+                                     alt="Vintage family portrait from the 1960s" 
+                                     class="w-full h-full object-cover group-hover:scale-105 transition-transform cursor-pointer" 
+                                     data-event="click:viewMemory" />
+                                <div class="absolute top-2 right-2 bg-black/50 rounded-full p-2">
+                                    <i class="fas fa-camera text-white text-sm"></i>
+                                </div>
+                            </div>
+                            <div class="p-4">
+                                <h3 class="font-semibold text-card-foreground mb-2">Wedding Day 1965</h3>
+                                <div class="flex flex-wrap gap-1 mb-3">
+                                    <span class="px-2 py-1 bg-accent text-accent-foreground text-xs rounded-full">vintage</span>
+                                    <span class="px-2 py-1 bg-primary text-primary-foreground text-xs rounded-full">wedding</span>
+                                </div>
+                                <p class="text-sm text-muted-foreground">Added 1 month ago</p>
+                            </div>
+                        </div>
+                        
+                        <!-- Upload New Memory -->
+                        <div class="bg-card rounded-xl border-2 border-dashed border-border hover:border-primary hover:bg-primary/5 transition-all cursor-pointer group" data-event="click:uploadMemory">
+                            <div class="aspect-square flex items-center justify-center">
+                                <div class="text-center py-8">
+                                    <i class="fas fa-plus text-4xl text-muted-foreground group-hover:text-primary mb-4"></i>
+                                    <h3 class="text-xl font-semibold text-card-foreground group-hover:text-primary mb-2">Add Memory</h3>
+                                    <p class="text-muted-foreground">Upload photo, video, or audio</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- @END_MAP )) -->
+                </div>
+            </div>
+            <!-- @END_COMPONENT: MemoryWall -->
+        </main>
+    </div>
+    <!-- @END_COMPONENT: AppLayout -->
+    
+    <!-- Toast Notifications -->
+    <!-- @COMPONENT: ToastNotifications -->
+    <div id="toast-container" class="fixed top-4 right-4 z-50 space-y-2">
+        <!-- Reminder Notification -->
+        <div class="bg-primary text-primary-foreground px-6 py-4 rounded-lg shadow-lg border-l-4 border-accent max-w-sm">
+            <div class="flex items-center space-x-3">
+                <i class="fas fa-bell text-xl"></i>
+                <div>
+                    <p class="font-semibold">Medication Reminder</p>
+                    <p class="text-sm opacity-90">Time to take your morning Aricept</p>
+                </div>
+                <button class="text-primary-foreground hover:text-primary-foreground/80" data-event="click:dismissToast">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+    <!-- @END_COMPONENT: ToastNotifications -->
+    
+    <!-- Modal for Emergency Alert -->
+    <!-- @COMPONENT: EmergencyModal -->
+    <div id="emergency-modal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 hidden">
+        <div class="bg-card rounded-xl p-8 shadow-2xl border border-border max-w-md w-full mx-4">
+            <div class="text-center mb-6">
+                <div class="w-16 h-16 bg-destructive rounded-full mx-auto mb-4 flex items-center justify-center">
+                    <i class="fas fa-exclamation-triangle text-2xl text-destructive-foreground"></i>
+                </div>
+                <h3 class="text-2xl font-semibold text-card-foreground mb-2">Emergency Alert Sent</h3>
+                <p class="text-muted-foreground">Your emergency contacts have been notified. Help is on the way.</p>
+            </div>
+            
+            <div class="space-y-3 mb-6">
+                <div class="flex items-center space-x-3 p-3 bg-muted rounded-lg">
+                    <i class="fas fa-check text-accent"></i>
+                    <span>Sarah Miller contacted</span>
+                </div>
+                <div class="flex items-center space-x-3 p-3 bg-muted rounded-lg">
+                    <i class="fas fa-check text-accent"></i>
+                    <span>Emergency services notified</span>
+                </div>
+                <div class="flex items-center space-x-3 p-3 bg-muted rounded-lg">
+                    <i class="fas fa-check text-accent"></i>
+                    <span>Location shared</span>
+                </div>
+            </div>
+            
+            <div class="flex space-x-3">
+                <button class="flex-1 px-6 py-3 bg-destructive text-destructive-foreground rounded-lg" data-event="click:cancelEmergency">
+                    Cancel Alert
+                </button>
+                <button class="flex-1 px-6 py-3 bg-secondary text-secondary-foreground rounded-lg" data-event="click:closeModal">
+                    OK
+                </button>
+            </div>
+        </div>
+    </div>
+    <!-- @END_COMPONENT: EmergencyModal -->
+
+    <script>
+        // TODO: Implement React component structure and state management
+        // TODO: Implement socket.io client for real-time notifications
+        // TODO: Implement Web Speech API for voice-to-text functionality
+        // TODO: Implement geolocation API for location tracking
+        // TODO: Implement camera API for photo capture
+        
+        (function() {
+            // Basic navigation functionality for demo
+            const navButtons = document.querySelectorAll('[data-page]');
+            const pages = document.querySelectorAll('.page-content');
+            
+            navButtons.forEach(button => {
+                button.addEventListener('click', () => {
+                    const targetPage = button.dataset.page;
+                    
+                    // Update active nav button
+                    navButtons.forEach(btn => {
+                        btn.classList.remove('bg-primary', 'text-primary-foreground');
+                        btn.classList.add('bg-muted', 'hover:bg-accent', 'hover:text-accent-foreground');
+                    });
+                    button.classList.remove('bg-muted', 'hover:bg-accent', 'hover:text-accent-foreground');
+                    button.classList.add('bg-primary', 'text-primary-foreground');
+                    
+                    // Show target page
+                    pages.forEach(page => page.classList.add('hidden'));
+                    const targetElement = document.getElementById(`${targetPage}-page`);
+                    if (targetElement) {
+                        targetElement.classList.remove('hidden');
+                    }
+                });
+            });
+            
+            // Demo emergency alert
+            const emergencyButtons = document.querySelectorAll('[data-event*="triggerEmergency"]');
+            const emergencyModal = document.getElementById('emergency-modal');
+            
+            emergencyButtons.forEach(button => {
+                button.addEventListener('click', () => {
+                    emergencyModal.classList.remove('hidden');
+                    // TODO: Implement actual emergency alert via socket.io
+                });
+            });
+            
+            // Close modal functionality
+            document.querySelectorAll('[data-event*="closeModal"]').forEach(button => {
+                button.addEventListener('click', () => {
+                    document.querySelectorAll('.fixed.inset-0').forEach(modal => {
+                        modal.classList.add('hidden');
+                    });
+                });
+            });
+            
+            // Toast notification demo
+            function showToast() {
+                const toast = document.querySelector('#toast-container > div');
+                if (toast) {
+                    toast.style.display = 'block';
+                    setTimeout(() => {
+                        toast.style.display = 'none';
+                    }, 5000);
+                }
+            }
+            
+            // Show demo toast after 3 seconds
+            setTimeout(showToast, 3000);
+        })();
+    </script>
+</body>
+</html>
