@@ -230,9 +230,9 @@ export default function Emergency() {
             <div className="text-center p-4 bg-muted rounded-lg">
               <Phone className="w-8 h-8 mx-auto mb-2 text-destructive" />
               <h4 className="font-semibold mb-1">Emergency Services</h4>
-              <p className="text-sm text-muted-foreground mb-2">Call 911 for immediate help</p>
-              <Button size="sm" variant="destructive" onClick={() => window.open('tel:911')}>
-                Call 911
+              <p className="text-sm text-muted-foreground mb-2">Call 112 for immediate help</p>
+              <Button size="sm" variant="destructive" onClick={() => window.open('tel:112')}>
+                Call 112
               </Button>
             </div>
             

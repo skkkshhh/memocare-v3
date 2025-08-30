@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { locationsApi } from '@/lib/api';
 import { Button } from '@/components/ui/button';
@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { MapPin, Navigation, Clock, Plus } from 'lucide-react';
+import { MapPin, Navigation, Clock, Plus, Loader2 } from 'lucide-react';
 
 export default function Locations() {
   const [showForm, setShowForm] = useState(false);
@@ -19,8 +19,65 @@ export default function Locations() {
     lat: 0,
     lng: 0,
   });
+  const [locationAddresses, setLocationAddresses] = useState<{ [key: string]: string }>({});
+  const [loadingAddresses, setLoadingAddresses] = useState<{ [key: string]: boolean }>({});
   const { toast } = useToast();
   const queryClient = useQueryClient();
+
+  // Function to get descriptive address from coordinates
+  const getAddressFromCoordinates = async (lat: number, lng: number): Promise<string> => {
+    try {
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`
+      );
+      const data = await response.json();
+      
+      if (data.display_name) {
+        // Extract meaningful parts of the address
+        const address = data.address || {};
+        const parts = [];
+        
+        if (address.house_number && address.road) {
+          parts.push(`${address.house_number} ${address.road}`);
+        } else if (address.road) {
+          parts.push(address.road);
+        }
+        
+        if (address.neighbourhood || address.suburb || address.hamlet) {
+          parts.push(address.neighbourhood || address.suburb || address.hamlet);
+        }
+        
+        if (address.city || address.town || address.village) {
+          parts.push(address.city || address.town || address.village);
+        }
+        
+        if (address.state) {
+          parts.push(address.state);
+        }
+        
+        return parts.length > 0 ? parts.join(', ') : data.display_name;
+      }
+      
+      return `Lat: ${lat.toFixed(4)}, Lng: ${lng.toFixed(4)}`;
+    } catch (error) {
+      console.error('Failed to get address:', error);
+      return `Lat: ${lat.toFixed(4)}, Lng: ${lng.toFixed(4)}`;
+    }
+  };
+
+  // Function to load address for a coordinate
+  const loadAddressForLocation = async (id: string, lat: number, lng: number) => {
+    if (locationAddresses[id] || loadingAddresses[id]) return;
+    
+    setLoadingAddresses(prev => ({ ...prev, [id]: true }));
+    
+    try {
+      const address = await getAddressFromCoordinates(lat, lng);
+      setLocationAddresses(prev => ({ ...prev, [id]: address }));
+    } finally {
+      setLoadingAddresses(prev => ({ ...prev, [id]: false }));
+    }
+  };
 
   const { data: locations = [], isLoading: locationsLoading } = useQuery({
     queryKey: ['locations'],
@@ -264,31 +321,50 @@ export default function Locations() {
                   </Button>
                 </div>
               ) : (
-                locationLogs.slice(0, 10).map((log: any) => (
-                  <div key={log.id} className="p-4 bg-muted rounded-lg" data-testid={`location-log-${log.id}`}>
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-3">
-                        <Navigation className="w-4 h-4 text-secondary" />
-                        <div>
-                          <p className="text-sm font-medium">
-                            {log.lat.toFixed(6)}, {log.lng.toFixed(6)}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            {new Date(log.recorded_at).toLocaleString()}
-                          </p>
+                locationLogs.slice(0, 10).map((log: any) => {
+                  const logId = `log-${log.id}`;
+                  const hasAddress = locationAddresses[logId];
+                  const isLoading = loadingAddresses[logId];
+                  
+                  // Load address if not already loaded
+                  if (!hasAddress && !isLoading) {
+                    loadAddressForLocation(logId, log.lat, log.lng);
+                  }
+                  
+                  return (
+                    <div key={log.id} className="p-4 bg-muted rounded-lg" data-testid={`location-log-${log.id}`}>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-3">
+                          <Navigation className="w-4 h-4 text-secondary" />
+                          <div className="flex-1">
+                            <div className="flex items-center space-x-2">
+                              {isLoading && <Loader2 className="w-3 h-3 animate-spin" />}
+                              <p className="text-sm font-medium">
+                                {hasAddress || `${log.lat.toFixed(4)}, ${log.lng.toFixed(4)}`}
+                              </p>
+                            </div>
+                            <p className="text-xs text-muted-foreground">
+                              {new Date(log.recorded_at).toLocaleString()}
+                            </p>
+                            {hasAddress && (
+                              <p className="text-xs text-muted-foreground">
+                                {log.lat.toFixed(6)}, {log.lng.toFixed(6)}
+                              </p>
+                            )}
+                          </div>
                         </div>
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          onClick={() => window.open(`https://www.openstreetmap.org/?mlat=${log.lat}&mlon=${log.lng}&zoom=15`)}
+                          data-testid={`button-view-log-map-${log.id}`}
+                        >
+                          View
+                        </Button>
                       </div>
-                      <Button 
-                        size="sm" 
-                        variant="outline"
-                        onClick={() => window.open(`https://www.openstreetmap.org/?mlat=${log.lat}&mlon=${log.lng}&zoom=15`)}
-                        data-testid={`button-view-log-map-${log.id}`}
-                      >
-                        View
-                      </Button>
                     </div>
-                  </div>
-                ))
+                  );
+                })
               )}
             </div>
           </CardContent>

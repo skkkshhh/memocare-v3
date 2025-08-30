@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { routinesApi } from '@/lib/api';
 import { Button } from '@/components/ui/button';
@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
 import { Plus, List, Check, X, Edit } from 'lucide-react';
 
@@ -17,9 +18,7 @@ export default function Routines() {
     title: '',
     description: '',
   });
-  const [taskData, setTaskData] = useState({
-    title: '',
-  });
+  const [taskData, setTaskData] = useState<{ [routineId: number]: { title: string } }>({});
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -41,10 +40,10 @@ export default function Routines() {
   const createTaskMutation = useMutation({
     mutationFn: ({ routineId, task }: { routineId: number; task: any }) =>
       routinesApi.createTask(routineId, task),
-    onSuccess: () => {
+    onSuccess: (_, { routineId }) => {
       queryClient.invalidateQueries({ queryKey: ['routines'] });
       setShowTaskForm(null);
-      setTaskData({ title: '' });
+      setTaskData(prev => ({ ...prev, [routineId]: { title: '' } }));
       toast({ title: 'Task added successfully' });
     },
   });
@@ -54,6 +53,7 @@ export default function Routines() {
       routinesApi.updateTask(taskId, updates),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['routines'] });
+      queryClient.invalidateQueries({ queryKey: ['routine-tasks'] });
     },
   });
 
@@ -73,8 +73,9 @@ export default function Routines() {
 
   const handleCreateTask = (routineId: number) => (e: React.FormEvent) => {
     e.preventDefault();
-    if (!taskData.title) return;
-    createTaskMutation.mutate({ routineId, task: taskData });
+    const currentTaskData = taskData[routineId] || { title: '' };
+    if (!currentTaskData.title) return;
+    createTaskMutation.mutate({ routineId, task: currentTaskData });
   };
 
   const toggleTask = (taskId: number, done: boolean) => {
@@ -184,22 +185,39 @@ export default function Routines() {
   function RoutineCard({ routine }: { routine: any }) {
     const { data: tasks = [] } = useRoutineTasks(routine.id);
     const completedTasks = tasks.filter((task: any) => task.done).length;
+    const progressPercentage = tasks.length > 0 ? (completedTasks / tasks.length) * 100 : 0;
+    const taskInputRef = useRef<HTMLInputElement>(null);
+
+    useEffect(() => {
+      if (showTaskForm === routine.id && taskInputRef.current) {
+        taskInputRef.current.focus();
+      }
+    }, [showTaskForm, routine.id]);
 
     return (
       <Card data-testid={`routine-card-${routine.id}`}>
         <CardHeader>
           <div className="flex items-center justify-between">
-            <div>
+            <div className="flex-1">
               <CardTitle className="text-2xl">{routine.title}</CardTitle>
               {routine.description && (
                 <p className="text-muted-foreground mt-1">{routine.description}</p>
               )}
+              {tasks.length > 0 && (
+                <div className="mt-3">
+                  <div className="flex items-center justify-between text-sm text-muted-foreground mb-1">
+                    <span>Progress</span>
+                    <span>{completedTasks}/{tasks.length} completed</span>
+                  </div>
+                  <Progress value={progressPercentage} className="h-2" />
+                </div>
+              )}
             </div>
-            <div className="text-right">
+            <div className="text-right ml-4">
               <div className="text-2xl font-semibold text-primary">
-                {completedTasks}/{tasks.length}
+                {Math.round(progressPercentage)}%
               </div>
-              <div className="text-sm text-muted-foreground">Completed</div>
+              <div className="text-sm text-muted-foreground">Complete</div>
             </div>
           </div>
         </CardHeader>
@@ -241,8 +259,12 @@ export default function Routines() {
           {showTaskForm === routine.id ? (
             <form onSubmit={handleCreateTask(routine.id)} className="flex space-x-2">
               <Input
-                value={taskData.title}
-                onChange={(e) => setTaskData({ title: e.target.value })}
+                ref={taskInputRef}
+                value={taskData[routine.id]?.title || ''}
+                onChange={(e) => setTaskData(prev => ({ 
+                  ...prev, 
+                  [routine.id]: { title: e.target.value } 
+                }))}
                 placeholder="Enter task title"
                 required
                 data-testid={`input-task-${routine.id}`}

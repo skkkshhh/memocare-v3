@@ -59,7 +59,28 @@ export default function Contacts() {
 
   const filteredContacts = contacts.filter((contact: any) => {
     const matchesSearch = contact.name.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesRelation = relationFilter === 'all' || contact.relation.toLowerCase() === relationFilter;
+    
+    let matchesRelation = true;
+    if (relationFilter !== 'all') {
+      const relation = contact.relation.toLowerCase();
+      switch (relationFilter) {
+        case 'family':
+          matchesRelation = ['daughter', 'son', 'spouse'].includes(relation);
+          break;
+        case 'friend':
+          matchesRelation = relation === 'friend';
+          break;
+        case 'doctor':
+          matchesRelation = relation === 'doctor';
+          break;
+        case 'neighbor':
+          matchesRelation = ['neighbor', 'caregiver'].includes(relation);
+          break;
+        default:
+          matchesRelation = relation === relationFilter;
+      }
+    }
+    
     return matchesSearch && matchesRelation;
   });
 
@@ -138,7 +159,6 @@ export default function Contacts() {
                       <SelectValue placeholder="Select relationship" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">Select relationship</SelectItem>
                       <SelectItem value="daughter">Daughter</SelectItem>
                       <SelectItem value="son">Son</SelectItem>
                       <SelectItem value="spouse">Spouse</SelectItem>

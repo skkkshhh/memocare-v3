@@ -21,6 +21,7 @@ export default function MemoryWall() {
     type: '',
   });
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [viewingMemory, setViewingMemory] = useState<any>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -292,20 +293,51 @@ export default function MemoryWall() {
           <>
             {filteredMemories.map((memory: any) => (
               <Card key={memory.id} className="overflow-hidden hover:shadow-lg transition-shadow group" data-testid={`memory-${memory.id}`}>
-                <div className="relative aspect-square overflow-hidden">
+                <div 
+                  className="relative aspect-square overflow-hidden cursor-pointer"
+                  onClick={() => setViewingMemory(memory)}
+                >
                   {memory.type === 'photo' ? (
-                    <div className="w-full h-full bg-muted flex items-center justify-center">
-                      <Camera className="w-12 h-12 text-muted-foreground" />
-                    </div>
+                    <img 
+                      src={memory.file_path} 
+                      alt={memory.title}
+                      className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
+                      onError={(e) => {
+                        // Fallback to placeholder if image fails to load
+                        const target = e.target as HTMLImageElement;
+                        target.style.display = 'none';
+                        target.nextElementSibling?.classList.remove('hidden');
+                      }}
+                    />
                   ) : memory.type === 'video' ? (
-                    <div className="w-full h-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center">
-                      <Video className="w-12 h-12 text-white" />
-                    </div>
+                    <video 
+                      src={memory.file_path}
+                      className="w-full h-full object-cover"
+                      preload="metadata"
+                      onError={(e) => {
+                        // Fallback to placeholder if video fails to load
+                        const target = e.target as HTMLVideoElement;
+                        target.style.display = 'none';
+                        target.nextElementSibling?.classList.remove('hidden');
+                      }}
+                    />
                   ) : (
                     <div className="w-full h-full bg-gradient-to-br from-accent to-primary flex items-center justify-center">
                       <Music className="w-12 h-12 text-white" />
+                      <div className="absolute bottom-2 left-2 text-white text-sm bg-black/50 px-2 py-1 rounded">
+                        Audio
+                      </div>
                     </div>
                   )}
+                  
+                  {/* Fallback placeholders (hidden by default, shown on error) */}
+                  <div className="absolute inset-0 bg-muted flex items-center justify-center hidden">
+                    {memory.type === 'photo' ? (
+                      <Camera className="w-12 h-12 text-muted-foreground" />
+                    ) : (
+                      <Video className="w-12 h-12 text-muted-foreground" />
+                    )}
+                  </div>
                   
                   <div className="absolute top-2 right-2 bg-black/50 rounded-full p-2">
                     {getMemoryIcon(memory.type)}
@@ -313,8 +345,10 @@ export default function MemoryWall() {
                   
                   {memory.type === 'video' && (
                     <div className="absolute inset-0 flex items-center justify-center">
-                      <div className="w-16 h-16 bg-black/50 rounded-full flex items-center justify-center">
-                        <Video className="text-white text-2xl" />
+                      <div className="w-16 h-16 bg-black/50 rounded-full flex items-center justify-center hover:bg-black/70 transition-colors cursor-pointer">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" className="text-white">
+                          <path d="M8 5v14l11-7z" fill="currentColor"/>
+                        </svg>
                       </div>
                     </div>
                   )}
@@ -359,6 +393,76 @@ export default function MemoryWall() {
           </>
         )}
       </div>
+
+      {/* Media Viewer Modal */}
+      {viewingMemory && (
+        <div 
+          className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4"
+          onClick={() => setViewingMemory(null)}
+        >
+          <div 
+            className="max-w-4xl max-h-full bg-white rounded-lg overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-4 border-b">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-xl font-semibold">{viewingMemory.title}</h3>
+                  <p className="text-sm text-muted-foreground">
+                    {new Date(viewingMemory.created_at).toLocaleDateString()}
+                  </p>
+                </div>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => setViewingMemory(null)}
+                >
+                  Close
+                </Button>
+              </div>
+            </div>
+            
+            <div className="relative">
+              {viewingMemory.type === 'photo' ? (
+                <img 
+                  src={viewingMemory.file_path} 
+                  alt={viewingMemory.title}
+                  className="max-w-full max-h-[70vh] object-contain"
+                />
+              ) : viewingMemory.type === 'video' ? (
+                <video 
+                  src={viewingMemory.file_path}
+                  controls
+                  className="max-w-full max-h-[70vh]"
+                  autoPlay
+                />
+              ) : (
+                <div className="p-8 text-center">
+                  <Music className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />
+                  <audio 
+                    src={viewingMemory.file_path}
+                    controls
+                    className="w-full max-w-md mx-auto"
+                    autoPlay
+                  />
+                </div>
+              )}
+            </div>
+            
+            {viewingMemory.tags && (
+              <div className="p-4 border-t">
+                <div className="flex flex-wrap gap-2">
+                  {viewingMemory.tags.split(',').map((tag: string, index: number) => (
+                    <Badge key={index} variant="secondary">
+                      {tag.trim()}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

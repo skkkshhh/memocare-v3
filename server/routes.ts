@@ -355,36 +355,161 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Games/Quiz routes
   app.get('/api/games/quiz', ensureAuth, async (req: Request, res: Response) => {
-    // Generate quiz questions from contacts, medications, and memory items
-    const contacts = await storage.getContacts(req.session.userId!);
-    const medications = await storage.getMedications(req.session.userId!);
-    const memoryItems = await storage.getMemoryItems(req.session.userId!);
+    try {
+      // Generate quiz questions from contacts, medications, and memory items
+      const contacts = await storage.getContacts(req.session.userId!);
+      const medications = await storage.getMedications(req.session.userId!);
+      const memoryItems = await storage.getMemoryItems(req.session.userId!);
 
-    const questions = [];
+      const questions = [];
 
-    // Generate questions from contacts
-    contacts.forEach(contact => {
-      questions.push({
-        type: 'contact',
-        question: `What is the relationship of ${contact.name} to you?`,
-        answer: contact.relation,
-        options: ['Daughter', 'Son', 'Doctor', 'Friend', 'Neighbor']
+      // Helper function to generate wrong options that are similar but different
+      const generateOptions = (correct: string, type: string, allData: any[]) => {
+        const options = [correct];
+        const similar = allData.map(item => {
+          if (type === 'relation') return item.relation;
+          if (type === 'dosage') return item.dosage;
+          if (type === 'frequency') return item.frequency;
+          if (type === 'name') return item.name;
+          return '';
+        }).filter(val => val && val !== correct);
+        
+        // Add some generic options if not enough similar ones
+        const genericOptions = {
+          relation: ['Daughter', 'Son', 'Friend', 'Doctor', 'Neighbor', 'Spouse', 'Caregiver'],
+          dosage: ['5mg', '10mg', '15mg', '20mg', '25mg', '50mg', '100mg'],
+          frequency: ['Once daily', 'Twice daily', 'Three times daily', 'Weekly', 'As needed'],
+          name: ['John', 'Mary', 'David', 'Sarah', 'Michael', 'Lisa']
+        };
+        
+        const pool = [...similar, ...(genericOptions[type] || [])].filter(opt => opt !== correct);
+        
+        // Randomly select 3 wrong options
+        while (options.length < 4 && pool.length > 0) {
+          const randomIndex = Math.floor(Math.random() * pool.length);
+          const option = pool.splice(randomIndex, 1)[0];
+          if (!options.includes(option)) {
+            options.push(option);
+          }
+        }
+        
+        // Shuffle the options
+        return options.sort(() => 0.5 - Math.random());
+      };
+
+      // Generate questions from contacts
+      contacts.slice(0, 3).forEach(contact => {
+        if (contact.name && contact.relation) {
+          questions.push({
+            type: 'contact',
+            question: `What is ${contact.name}'s relationship to you?`,
+            answer: contact.relation,
+            options: generateOptions(contact.relation, 'relation', contacts)
+          });
+        }
+
+        if (contact.name && contact.phone) {
+          // Create phone number questions (last 4 digits for privacy)
+          const lastFour = contact.phone.slice(-4);
+          questions.push({
+            type: 'contact',
+            question: `What are the last four digits of ${contact.name}'s phone number?`,
+            answer: lastFour,
+            options: [lastFour, 
+              Math.floor(Math.random() * 9000 + 1000).toString(),
+              Math.floor(Math.random() * 9000 + 1000).toString(),
+              Math.floor(Math.random() * 9000 + 1000).toString()
+            ].sort(() => 0.5 - Math.random())
+          });
+        }
       });
-    });
 
-    // Generate questions from medications
-    medications.forEach(med => {
-      questions.push({
-        type: 'medication',
-        question: `What is the dosage for ${med.name}?`,
-        answer: med.dosage,
-        options: ['5mg', '10mg', '15mg', '20mg']
+      // Generate questions from medications
+      medications.slice(0, 3).forEach(med => {
+        if (med.name && med.dosage) {
+          questions.push({
+            type: 'medication',
+            question: `What is the dosage for ${med.name}?`,
+            answer: med.dosage,
+            options: generateOptions(med.dosage, 'dosage', medications)
+          });
+        }
+
+        if (med.name && med.frequency) {
+          questions.push({
+            type: 'medication',
+            question: `How often should you take ${med.name}?`,
+            answer: med.frequency,
+            options: generateOptions(med.frequency, 'frequency', medications)
+          });
+        }
+
+        if (med.name && med.time) {
+          questions.push({
+            type: 'medication',
+            question: `What time should you take ${med.name}?`,
+            answer: med.time,
+            options: [med.time, '8:00 AM', '12:00 PM', '6:00 PM', '9:00 PM'].filter((time, index, arr) => arr.indexOf(time) === index).slice(0, 4).sort(() => 0.5 - Math.random())
+          });
+        }
       });
-    });
 
-    // Shuffle and limit to 6 questions
-    const shuffled = questions.sort(() => 0.5 - Math.random());
-    res.json(shuffled.slice(0, 6));
+      // Generate questions from memory items
+      memoryItems.slice(0, 2).forEach(memory => {
+        if (memory.title && memory.tags) {
+          const tags = memory.tags.split(',').map(tag => tag.trim()).filter(Boolean);
+          if (tags.length > 0) {
+            const correctTag = tags[0];
+            questions.push({
+              type: 'memory',
+              question: `Which tag is associated with the memory "${memory.title}"?`,
+              answer: correctTag,
+              options: [correctTag, 'family', 'vacation', 'celebration', 'friends'].filter((tag, index, arr) => arr.indexOf(tag) === index).slice(0, 4).sort(() => 0.5 - Math.random())
+            });
+          }
+        }
+
+        if (memory.title && memory.type) {
+          questions.push({
+            type: 'memory',
+            question: `What type of file is "${memory.title}"?`,
+            answer: memory.type,
+            options: [memory.type, 'photo', 'video', 'audio'].filter((type, index, arr) => arr.indexOf(type) === index).slice(0, 4).sort(() => 0.5 - Math.random())
+          });
+        }
+      });
+
+      // If no user data, provide default questions
+      if (questions.length === 0) {
+        questions.push(
+          {
+            type: 'general',
+            question: 'What should you do if you miss a medication dose?',
+            answer: 'Take it as soon as you remember',
+            options: ['Take it as soon as you remember', 'Skip it and wait for next dose', 'Take double dose next time', 'Stop taking the medication']
+          },
+          {
+            type: 'general',
+            question: 'How often should you review your medication list with your doctor?',
+            answer: 'At every visit',
+            options: ['At every visit', 'Once a year', 'Only when sick', 'Never needed']
+          },
+          {
+            type: 'general',
+            question: 'What is the most important thing to remember about emergency contacts?',
+            answer: 'Keep them easily accessible',
+            options: ['Keep them easily accessible', 'Memorize all numbers', 'Only use family members', 'Update them monthly']
+          }
+        );
+      }
+
+      // Shuffle and limit to 6 questions
+      const shuffled = questions.sort(() => 0.5 - Math.random());
+      res.json(shuffled.slice(0, 6));
+    } catch (error) {
+      console.error('Error generating quiz questions:', error);
+      res.status(500).json({ message: 'Failed to generate quiz questions' });
+    }
   });
 
   // Emergency routes

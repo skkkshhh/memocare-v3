@@ -15,6 +15,8 @@ export default function Journal() {
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recognitionRef = useRef<any>(null);
+  const [currentlyPlaying, setCurrentlyPlaying] = useState<number | null>(null);
+  const audioRefs = useRef<{ [key: number]: HTMLAudioElement }>({});
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -100,6 +102,51 @@ export default function Journal() {
     }
     
     setIsRecording(false);
+  };
+
+  const playPreviewAudio = () => {
+    if (audioBlob) {
+      const audio = new Audio(URL.createObjectURL(audioBlob));
+      audio.play();
+    }
+  };
+
+  const playAudio = (entryId: number, audioPath: string) => {
+    if (currentlyPlaying === entryId) {
+      // Stop current audio
+      if (audioRefs.current[entryId]) {
+        audioRefs.current[entryId].pause();
+        audioRefs.current[entryId].currentTime = 0;
+      }
+      setCurrentlyPlaying(null);
+      return;
+    }
+
+    // Stop any currently playing audio
+    if (currentlyPlaying && audioRefs.current[currentlyPlaying]) {
+      audioRefs.current[currentlyPlaying].pause();
+      audioRefs.current[currentlyPlaying].currentTime = 0;
+    }
+
+    // Create and play new audio
+    if (!audioRefs.current[entryId]) {
+      audioRefs.current[entryId] = new Audio(audioPath);
+      audioRefs.current[entryId].addEventListener('ended', () => {
+        setCurrentlyPlaying(null);
+      });
+    }
+    
+    audioRefs.current[entryId].play();
+    setCurrentlyPlaying(entryId);
+  };
+
+  const downloadAudio = (audioPath: string, entryId: number) => {
+    const link = document.createElement('a');
+    link.href = audioPath;
+    link.download = `journal-entry-${entryId}.wav`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   const saveEntry = () => {
@@ -242,7 +289,7 @@ export default function Journal() {
                   <div className="bg-muted p-4 rounded-lg">
                     <p className="text-sm text-muted-foreground mb-2">Recording completed</p>
                     <div className="flex items-center space-x-4">
-                      <Button size="sm" variant="outline" data-testid="button-play-recording">
+                      <Button size="sm" variant="outline" onClick={playPreviewAudio} data-testid="button-play-recording">
                         <Play className="w-4 h-4" />
                       </Button>
                       <div className="flex-1 bg-background rounded-full h-2">
@@ -332,14 +379,23 @@ export default function Journal() {
                 {entry.type === 'audio' && entry.audio_path && (
                   <div className="bg-muted p-4 rounded-lg mb-4">
                     <div className="flex items-center space-x-4">
-                      <Button size="sm" data-testid={`button-play-${entry.id}`}>
-                        <Play className="w-4 h-4" />
+                      <Button 
+                        size="sm" 
+                        onClick={() => playAudio(entry.id, entry.audio_path)}
+                        data-testid={`button-play-${entry.id}`}
+                      >
+                        {currentlyPlaying === entry.id ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
                       </Button>
                       <div className="flex-1 bg-background rounded-full h-2">
                         <div className="bg-primary h-2 rounded-full" style={{ width: '30%' }}></div>
                       </div>
                       <div className="text-sm text-muted-foreground">1:30</div>
-                      <Button size="sm" variant="outline" data-testid={`button-download-${entry.id}`}>
+                      <Button 
+                        size="sm" 
+                        variant="outline" 
+                        onClick={() => downloadAudio(entry.audio_path, entry.id)}
+                        data-testid={`button-download-${entry.id}`}
+                      >
                         <Download className="w-4 h-4" />
                       </Button>
                     </div>
