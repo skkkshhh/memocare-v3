@@ -27,7 +27,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Setup session store
   app.use(session({
-    store: new SqliteStore({ db: 'sessions.db' }),
+    store: new SqliteStore({ db: 'sessions.db' }) as any,
     secret: config.sessionSecret,
     resave: false,
     saveUninitialized: false,
