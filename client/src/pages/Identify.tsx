@@ -36,20 +36,28 @@ export default function Identify() {
   const { data: contacts = [] } = useQuery({
     queryKey: ['contacts'],
     queryFn: async () => {
-      const response = await fetch('/api/contacts');
-      if (!response.ok) throw new Error('Failed to fetch contacts');
+      const response = await fetch('/api/contacts', { credentials: 'include' });
+      if (!response.ok) {
+        if (response.status === 401) return [];
+        throw new Error('Failed to fetch contacts');
+      }
       return response.json();
     },
+    retry: false,
   });
 
   // Query for stored object recognitions
   const { data: storedObjects = [] } = useQuery({
     queryKey: ['object-recognitions'],
     queryFn: async () => {
-      const response = await fetch('/api/identify/objects');
-      if (!response.ok) throw new Error('Failed to fetch objects');
+      const response = await fetch('/api/identify/objects', { credentials: 'include' });
+      if (!response.ok) {
+        if (response.status === 401) return [];
+        throw new Error('Failed to fetch objects');
+      }
       return response.json();
     },
+    retry: false,
   });
 
   const uploadMutation = useMutation({

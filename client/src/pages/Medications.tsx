@@ -28,13 +28,19 @@ export default function Medications() {
     queryKey: ['all-medication-logs', medicationIds],
     queryFn: async () => {
       if (medicationIds.length === 0) return {};
-      const logsPromises = medicationIds.map((id: number) => 
-        medicationsApi.logs(id).then(logs => ({ [id]: logs }))
-      );
-      const logsArray = await Promise.all(logsPromises);
-      return logsArray.reduce((acc, logs) => ({ ...acc, ...logs }), {});
+      try {
+        const logsPromises = medicationIds.map((id: number) => 
+          medicationsApi.logs(id).then(logs => ({ [id]: logs })).catch(() => ({ [id]: [] }))
+        );
+        const logsArray = await Promise.all(logsPromises);
+        return logsArray.reduce((acc, logs) => ({ ...acc, ...logs }), {});
+      } catch (error) {
+        console.warn('Failed to fetch medication logs:', error);
+        return {};
+      }
     },
     enabled: medicationIds.length > 0,
+    retry: false,
   });
 
   const createMutation = useMutation({
