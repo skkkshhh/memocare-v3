@@ -380,7 +380,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           name: ['John', 'Mary', 'David', 'Sarah', 'Michael', 'Lisa']
         };
         
-        const pool = [...similar, ...(genericOptions[type] || [])].filter(opt => opt !== correct);
+        const pool = [...similar, ...(genericOptions[type as keyof typeof genericOptions] || [])].filter(opt => opt !== correct);
         
         // Randomly select 3 wrong options
         while (options.length < 4 && pool.length > 0) {
