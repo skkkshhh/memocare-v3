@@ -239,6 +239,61 @@ export default function Identify() {
   return (
     <div className="p-8">
       <h2 className="text-4xl font-semibold mb-4">Identify & Tag</h2>
+      
+      {/* Recently Identified Objects Corner */}
+      {storedObjects.length > 0 && (
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <Tag className="w-5 h-5"/>
+              Recently Identified Objects
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex gap-4 overflow-x-auto pb-2">
+              {storedObjects.slice(0, 6).map((obj: any) => (
+                <div 
+                  key={obj.id} 
+                  className="flex-shrink-0 w-24 text-center cursor-pointer hover:bg-accent rounded-lg p-2 transition-colors"
+                  onClick={() => {
+                    setTags(obj.user_tag);
+                    if (obj.notes) setNotes(obj.notes);
+                    toast({
+                      title: 'Quick fill applied',
+                      description: `Applied "${obj.user_tag}" as tag`
+                    });
+                  }}
+                >
+                  <div className="w-16 h-16 mx-auto mb-2 bg-muted rounded-lg flex items-center justify-center">
+                    {obj.photo_path ? (
+                      <img 
+                        src={`/uploads/${obj.photo_path.split('/').pop()}`} 
+                        alt={obj.user_tag}
+                        className="w-full h-full object-cover rounded-lg"
+                        onError={(e) => {
+                          // Fallback to icon if image fails to load
+                          const img = e.target as HTMLImageElement;
+                          const fallback = img.nextElementSibling as HTMLDivElement;
+                          img.style.display = 'none';
+                          if (fallback) fallback.style.display = 'flex';
+                        }}
+                      />
+                    ) : null}
+                    <div className="w-full h-full flex items-center justify-center" style={{ display: obj.photo_path ? 'none' : 'flex' }}>
+                      <Tag className="w-6 h-6 text-muted-foreground"/>
+                    </div>
+                  </div>
+                  <p className="text-xs font-medium truncate">{obj.user_tag}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {new Date(obj.created_at).toLocaleDateString()}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Camera & Upload */}
         <Card>

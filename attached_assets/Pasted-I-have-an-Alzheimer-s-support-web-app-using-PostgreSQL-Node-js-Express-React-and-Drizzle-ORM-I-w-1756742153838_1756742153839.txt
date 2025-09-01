@@ -1,0 +1,95 @@
+I have an Alzheimer’s support web app using PostgreSQL, Node.js/Express, React, and Drizzle ORM. I want you to completely fix and enhance the Identify & Tag feature according to the specifications below. Ignore other features for now. Use only free-to-use libraries or APIs—no paid services. You can use libraries like OpenCV.js, TensorFlow.js, Hugging Face free models, or other open-source/free solutions.
+
+Feature Requirements:
+
+Recently Identified Objects Corner:
+
+When a user opens the Identify tab, show a small corner section with recently identified objects (thumbnails or small previews).
+
+Users should have quick access to objects they have recently tagged or forgotten.
+
+Camera Capture:
+
+The “Use Camera” option must always open the camera reliably.
+
+Show a live camera preview in the UI.
+
+Provide a capture button to take a photo and add it for tagging.
+
+Retake functionality must always work.
+
+The camera must be able to capture multiple images in a single session without breaking.
+
+Upload Photo:
+
+The upload option should open the file explorer for image selection.
+
+After uploading, the image should be displayed in the preview and ready for tagging.
+
+Upload should not interfere with camera functionality.
+
+Scan / Recognition:
+
+Provide a Scan button for users to scan an object.
+
+If the object was previously tagged, it should recognize it and display the stored description/notes.
+
+If the object is new, allow the user to tag and save it.
+
+Ensure that duplicate captures of the same object are handled correctly (show “Object already exists” or similar confirmation).
+
+Use free and open-source object recognition methods only (OpenCV.js, TensorFlow.js, Hugging Face free models, etc.)
+
+Tagging & Notes:
+
+Users can enter a tag/description for each object.
+
+Users can optionally link the object to a contact.
+
+Users can add additional notes.
+
+Object Recognition Storage & Retrieval:
+
+Store captured object photos along with visual features or signatures in the database.
+
+When scanning, compare the new image with stored signatures and return matches with confidence percentages.
+
+UI & User Experience:
+
+All steps must be reliable and consistent, no random failures.
+
+Clearly show captured images, uploaded images, recognition results, and matches in the UI.
+
+Use visual feedback for scanning, uploading, and capturing.
+
+Retake and cancel options must work as expected.
+
+Test Cases / Expected Behavior:
+
+Open Identify tab → recently identified objects are visible.
+
+Click “Use Camera” → live preview starts → capture button works → captured photo shows → retake works.
+
+Click “Upload Photo” → select file → uploaded photo displays → camera still works if selected afterward.
+
+Capture or upload a new object → enter tag/notes → save → object stored in database.
+
+Scan an existing object → recognition triggers → displays stored tag/notes → shows match confidence.
+
+Capture/scan the same object twice → system warns “Object already exists” or displays previous info.
+
+UI behaves consistently with no errors or broken states during multiple operations in the same session.
+
+Requirements / Constraints:
+
+Must run locally on VS Code.
+
+Use the existing PostgreSQL database; do not switch to SQLite.
+
+All changes must integrate with the current React frontend and Node.js backend.
+
+Include all necessary backend endpoints and database logic to handle object recognition and retrieval.
+
+Ensure camera permissions and media streams work reliably in the browser.
+
+Use free and open-source libraries only for all image processing, object detection, and recognition.
