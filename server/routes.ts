@@ -21,7 +21,7 @@ const SqliteStore = SQLiteStore(session);
 export async function registerRoutes(app: Express): Promise<Server> {
   // Setup CORS
   app.use(cors({
-    origin: config.clientOrigin,
+    origin: true, // Allow all origins in development
     credentials: true
   }));
 
@@ -43,7 +43,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Setup Socket.IO
   const io = new SocketServer(httpServer, {
     cors: {
-      origin: config.clientOrigin,
+      origin: true, // Allow all origins in development
       credentials: true
     }
   });
