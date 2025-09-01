@@ -22,6 +22,15 @@ export default function Medications() {
     queryFn: medicationsApi.list,
   });
 
+  // Helper function to get recent logs for a medication
+  const getMedicationLogs = (medicationId: number) => {
+    const { data: logs = [] } = useQuery({
+      queryKey: ['medication-logs', medicationId],
+      queryFn: () => medicationsApi.logs(medicationId),
+    });
+    return logs;
+  };
+
   const createMutation = useMutation({
     mutationFn: (data: any) => medicationsApi.create(data),
     onSuccess: () => {
@@ -157,71 +166,107 @@ export default function Medications() {
             </CardContent>
           </Card>
         ) : (
-          medications.map((medication: any) => (
-            <Card key={medication.id} data-testid={`medication-card-${medication.id}`}>
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <div>
-                    <h3 className="text-xl font-semibold text-card-foreground">
-                      {medication.name}
-                    </h3>
-                    <p className="text-muted-foreground">
-                      {medication.dosage} {medication.notes && ` • ${medication.notes}`}
-                    </p>
-                  </div>
-                  <div className="flex space-x-2">
-                    <Button
-                      size="sm"
-                      onClick={() => logDoseMutation.mutate({ id: medication.id, status: 'taken' })}
-                      disabled={logDoseMutation.isPending}
-                      data-testid={`button-log-taken-${medication.id}`}
-                    >
-                      <Check className="w-4 h-4 mr-1" />
-                      Taken
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="destructive"
-                      onClick={() => logDoseMutation.mutate({ id: medication.id, status: 'missed' })}
-                      disabled={logDoseMutation.isPending}
-                      data-testid={`button-log-missed-${medication.id}`}
-                    >
-                      <X className="w-4 h-4 mr-1" />
-                      Missed
-                    </Button>
-                  </div>
-                </div>
+          medications.map((medication: any) => {
+            const MedicationCard = () => {
+              const { data: logs = [] } = useQuery({
+                queryKey: ['medication-logs', medication.id],
+                queryFn: () => medicationsApi.logs(medication.id),
+              });
 
-                {/* Weekly Progress */}
-                <div className="flex items-center space-x-2">
-                  <span className="text-sm text-muted-foreground">Last 7 days:</span>
-                  <div className="flex space-x-1">
-                    {[...Array(7)].map((_, index) => (
-                      <div
-                        key={index}
-                        className={`w-8 h-8 rounded flex items-center justify-center ${
-                          index < 5 
-                            ? 'bg-accent text-accent-foreground' 
-                            : index === 5 
-                            ? 'bg-destructive text-destructive-foreground'
-                            : 'bg-muted text-muted-foreground'
-                        }`}
-                        data-testid={`medication-day-${medication.id}-${index}`}
-                      >
-                        {index < 5 ? (
-                          <Check className="w-3 h-3" />
-                        ) : index === 5 ? (
-                          <X className="w-3 h-3" />
-                        ) : (
-                          <Clock className="w-3 h-3" />
+              // Get last 7 days
+              const last7Days = Array.from({ length: 7 }, (_, i) => {
+                const date = new Date();
+                date.setDate(date.getDate() - (6 - i));
+                return date.toDateString();
+              });
+
+              // Map logs to days
+              const logsByDay = logs.reduce((acc: any, log: any) => {
+                const logDate = new Date(log.taken_at).toDateString();
+                acc[logDate] = log;
+                return acc;
+              }, {});
+
+              return (
+                <Card key={medication.id} data-testid={`medication-card-${medication.id}`}>
+                  <CardContent className="p-6">
+                    <div className="flex items-center justify-between mb-4">
+                      <div>
+                        <h3 className="text-xl font-semibold text-card-foreground">
+                          {medication.name}
+                        </h3>
+                        <p className="text-muted-foreground">
+                          {medication.dosage} {medication.notes && ` • ${medication.notes}`}
+                        </p>
+                        {logs.length > 0 && (
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Last taken: {new Date(logs[logs.length - 1]?.taken_at).toLocaleString()}
+                          </p>
                         )}
                       </div>
-                    ))}
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))
+                      <div className="flex space-x-2">
+                        <Button
+                          size="sm"
+                          onClick={() => logDoseMutation.mutate({ id: medication.id, status: 'taken' })}
+                          disabled={logDoseMutation.isPending}
+                          data-testid={`button-log-taken-${medication.id}`}
+                        >
+                          <Check className="w-4 h-4 mr-1" />
+                          Taken
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          onClick={() => logDoseMutation.mutate({ id: medication.id, status: 'missed' })}
+                          disabled={logDoseMutation.isPending}
+                          data-testid={`button-log-missed-${medication.id}`}
+                        >
+                          <X className="w-4 h-4 mr-1" />
+                          Missed
+                        </Button>
+                      </div>
+                    </div>
+
+                    {/* Weekly Progress with real data */}
+                    <div className="flex items-center space-x-2">
+                      <span className="text-sm text-muted-foreground">Last 7 days:</span>
+                      <div className="flex space-x-1">
+                        {last7Days.map((day, index) => {
+                          const log = logsByDay[day];
+                          const status = log?.status;
+                          
+                          return (
+                            <div
+                              key={index}
+                              className={`w-8 h-8 rounded flex items-center justify-center ${
+                                status === 'taken'
+                                  ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300' 
+                                  : status === 'missed'
+                                  ? 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300'
+                                  : 'bg-muted text-muted-foreground'
+                              }`}
+                              data-testid={`medication-day-${medication.id}-${index}`}
+                              title={log ? `${status} on ${new Date(log.taken_at).toLocaleDateString()}` : `No data for ${new Date(day).toLocaleDateString()}`}
+                            >
+                              {status === 'taken' ? (
+                                <Check className="w-3 h-3" />
+                              ) : status === 'missed' ? (
+                                <X className="w-3 h-3" />
+                              ) : (
+                                <Clock className="w-3 h-3" />
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            };
+
+            return <MedicationCard key={medication.id} />;
+          })
         )}
       </div>
     </div>

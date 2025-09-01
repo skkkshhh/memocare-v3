@@ -369,7 +369,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const similar = allData.map(item => {
           if (type === 'relation') return item.relation;
           if (type === 'dosage') return item.dosage;
-          if (type === 'frequency') return item.frequency;
           if (type === 'name') return item.name;
           return '';
         }).filter(val => val && val !== correct);
@@ -378,7 +377,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const genericOptions = {
           relation: ['Daughter', 'Son', 'Friend', 'Doctor', 'Neighbor', 'Spouse', 'Caregiver'],
           dosage: ['5mg', '10mg', '15mg', '20mg', '25mg', '50mg', '100mg'],
-          frequency: ['Once daily', 'Twice daily', 'Three times daily', 'Weekly', 'As needed'],
           name: ['John', 'Mary', 'David', 'Sarah', 'Michael', 'Lisa']
         };
         
@@ -435,21 +433,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
         }
 
-        if (med.name && med.frequency) {
+        if (med.name && med.notes) {
           questions.push({
             type: 'medication',
-            question: `How often should you take ${med.name}?`,
-            answer: med.frequency,
-            options: generateOptions(med.frequency, 'frequency', medications)
-          });
-        }
-
-        if (med.name && med.time) {
-          questions.push({
-            type: 'medication',
-            question: `What time should you take ${med.name}?`,
-            answer: med.time,
-            options: [med.time, '8:00 AM', '12:00 PM', '6:00 PM', '9:00 PM'].filter((time, index, arr) => arr.indexOf(time) === index).slice(0, 4).sort(() => 0.5 - Math.random())
+            question: `What are the notes for ${med.name}?`,
+            answer: med.notes,
+            options: [med.notes, 'Take with food', 'Take on empty stomach', 'Take at bedtime', 'Take with water'].filter((note, index, arr) => arr.indexOf(note) === index).slice(0, 4).sort(() => 0.5 - Math.random())
           });
         }
       });
