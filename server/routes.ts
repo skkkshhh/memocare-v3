@@ -547,20 +547,72 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Identify route (for photo tagging)
+  // Identify route (for photo tagging and object recognition)
   app.post('/api/identify', ensureAuth, upload.single('photo'), async (req: Request, res: Response) => {
     try {
       if (!req.file) {
         return res.status(400).json({ message: 'Photo is required' });
       }
 
-      // For now, just return the file path and allow tagging
-      res.json({
-        photo_path: `/uploads/${req.file.filename}`,
-        message: 'Photo uploaded successfully'
-      });
+      const userId = req.session.userId!;
+      const { tags, notes, linked_contact_id, detected_objects, visual_features } = req.body;
+
+      // Store object recognition data if provided
+      if (detected_objects && visual_features && tags) {
+        const objectRecognition = await storage.createObjectRecognition({
+          user_id: userId,
+          photo_path: `/uploads/${req.file.filename}`,
+          user_tag: tags,
+          detected_objects: typeof detected_objects === 'string' ? detected_objects : JSON.stringify(detected_objects),
+          visual_features: typeof visual_features === 'string' ? visual_features : JSON.stringify(visual_features),
+          notes: notes || null,
+          linked_contact_id: linked_contact_id ? parseInt(linked_contact_id) : null
+        });
+
+        res.json({
+          id: objectRecognition.id,
+          photo_path: `/uploads/${req.file.filename}`,
+          message: 'Photo uploaded and tagged successfully',
+          object_recognition: objectRecognition
+        });
+      } else {
+        // Fallback for basic photo upload
+        res.json({
+          photo_path: `/uploads/${req.file.filename}`,
+          message: 'Photo uploaded successfully'
+        });
+      }
     } catch (error) {
+      console.error('Failed to process photo:', error);
       res.status(400).json({ message: 'Failed to upload photo' });
+    }
+  });
+
+  // Get user's stored object recognitions
+  app.get('/api/identify/objects', ensureAuth, async (req: Request, res: Response) => {
+    try {
+      const userId = req.session.userId!;
+      const objects = await storage.getObjectRecognitions(userId);
+      res.json(objects);
+    } catch (error) {
+      res.status(400).json({ message: 'Failed to get object recognitions' });
+    }
+  });
+
+  // Find similar objects for recognition
+  app.post('/api/identify/match', ensureAuth, async (req: Request, res: Response) => {
+    try {
+      const userId = req.session.userId!;
+      const { visual_features } = req.body;
+
+      if (!visual_features) {
+        return res.status(400).json({ message: 'Visual features required' });
+      }
+
+      const similarObjects = await storage.findSimilarObjects(userId, visual_features);
+      res.json(similarObjects);
+    } catch (error) {
+      res.status(400).json({ message: 'Failed to find similar objects' });
     }
   });
 

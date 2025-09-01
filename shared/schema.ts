@@ -131,6 +131,29 @@ export const emergency_alerts = pgTable("emergency_alerts", {
   status: text("status").notNull().default("active"), // active|resolved
 });
 
+// Object recognition table - stores user-tagged objects for identification
+export const object_recognitions = pgTable("object_recognitions", {
+  id: serial("id").primaryKey(),
+  user_id: integer("user_id").notNull().references(() => users.id),
+  photo_path: text("photo_path").notNull(),
+  user_tag: text("user_tag").notNull(), // User's description/caption
+  detected_objects: text("detected_objects").notNull(), // JSON array of detected objects with confidence
+  visual_features: text("visual_features"), // Simplified visual signature for matching
+  notes: text("notes"),
+  linked_contact_id: integer("linked_contact_id").references(() => contacts.id),
+  created_at: timestamp("created_at").defaultNow(),
+});
+
+// Object recognition matches - stores when objects are re-identified
+export const object_matches = pgTable("object_matches", {
+  id: serial("id").primaryKey(),
+  user_id: integer("user_id").notNull().references(() => users.id),
+  original_object_id: integer("original_object_id").notNull().references(() => object_recognitions.id),
+  new_photo_path: text("new_photo_path").notNull(),
+  confidence_score: real("confidence_score").notNull(), // Matching confidence 0-1
+  matched_at: timestamp("matched_at").defaultNow(),
+});
+
 // Schemas for validation
 export const loginSchema = createInsertSchema(users).pick({
   email: true,
@@ -183,6 +206,16 @@ export const taskSchema = createInsertSchema(tasks).omit({
   created_at: true,
 });
 
+export const objectRecognitionSchema = createInsertSchema(object_recognitions).omit({
+  id: true,
+  created_at: true,
+});
+
+export const objectMatchSchema = createInsertSchema(object_matches).omit({
+  id: true,
+  matched_at: true,
+});
+
 // Type exports
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
@@ -210,3 +243,7 @@ export type QuizQuestion = typeof quiz_questions.$inferSelect;
 export type NewQuizQuestion = typeof quiz_questions.$inferInsert;
 export type EmergencyAlert = typeof emergency_alerts.$inferSelect;
 export type NewEmergencyAlert = typeof emergency_alerts.$inferInsert;
+export type ObjectRecognition = typeof object_recognitions.$inferSelect;
+export type NewObjectRecognition = typeof object_recognitions.$inferInsert;
+export type ObjectMatch = typeof object_matches.$inferSelect;
+export type NewObjectMatch = typeof object_matches.$inferInsert;

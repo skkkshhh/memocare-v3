@@ -1,15 +1,18 @@
 "use client";
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { apiFormData, contactsApi } from '@/lib/api';
+import { apiFormData } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
-import { Camera, Upload, Tag, Users } from 'lucide-react';
+import { Camera, Upload, Tag, Users, Scan, Brain, Check, Eye } from 'lucide-react';
+import { processImageForRecognition, findMatches, type DetectedObject, type ObjectSignature } from '@/lib/objectDetection';
 
 export default function Identify() {
   const [capturedPhoto, setCapturedPhoto] = useState<string | null>(null);
@@ -18,15 +21,35 @@ export default function Identify() {
   const [tags, setTags] = useState('');
   const [linkedContactId, setLinkedContactId] = useState<string | undefined>(undefined);
   const [notes, setNotes] = useState('');
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [detectedObjects, setDetectedObjects] = useState<DetectedObject[]>([]);
+  const [objectSignature, setObjectSignature] = useState<ObjectSignature | null>(null);
+  const [matchedObjects, setMatchedObjects] = useState<Array<{ id: number; userTag: string; confidence: number }>>([]);
+  const [modelLoading, setModelLoading] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const imageRef = useRef<HTMLImageElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
   const { data: contacts = [] } = useQuery({
     queryKey: ['contacts'],
-    queryFn: contactsApi.list,
+    queryFn: async () => {
+      const response = await fetch('/api/contacts');
+      if (!response.ok) throw new Error('Failed to fetch contacts');
+      return response.json();
+    },
+  });
+
+  // Query for stored object recognitions
+  const { data: storedObjects = [] } = useQuery({
+    queryKey: ['object-recognitions'],
+    queryFn: async () => {
+      const response = await fetch('/api/identify/objects');
+      if (!response.ok) throw new Error('Failed to fetch objects');
+      return response.json();
+    },
   });
 
   const uploadMutation = useMutation({
@@ -36,6 +59,7 @@ export default function Identify() {
         title: 'Photo uploaded successfully',
         description: 'Photo has been tagged and saved'
       });
+      queryClient.invalidateQueries({ queryKey: ['object-recognitions'] });
       resetForm();
     },
   });
@@ -96,6 +120,9 @@ export default function Identify() {
         const file = new File([blob], 'captured-photo.jpg', { type: 'image/jpeg' });
         setPhotoFile(file);
         setCapturedPhoto(URL.createObjectURL(blob));
+        
+        // Automatically analyze the captured photo
+        analyzePhoto(canvas);
       }
     }, 'image/jpeg', 0.8);
 
@@ -106,7 +133,57 @@ export default function Identify() {
     const file = e.target.files?.[0];
     if (file) {
       setPhotoFile(file);
-      setCapturedPhoto(URL.createObjectURL(file));
+      const photoUrl = URL.createObjectURL(file);
+      setCapturedPhoto(photoUrl);
+      
+      // Analyze uploaded photo
+      const img = new Image();
+      img.onload = () => analyzePhoto(img);
+      img.src = photoUrl;
+    }
+  };
+
+  // Object recognition analysis
+  const analyzePhoto = async (imageElement: HTMLImageElement | HTMLCanvasElement) => {
+    setIsAnalyzing(true);
+    setModelLoading(true);
+    
+    try {
+      const { detectedObjects, signature, visualFeatures } = await processImageForRecognition(imageElement);
+      
+      setDetectedObjects(detectedObjects);
+      setObjectSignature(signature);
+      setModelLoading(false);
+      
+      // Find matches with stored objects
+      if (storedObjects.length > 0) {
+        const storedSignatures = storedObjects.map((obj: any) => ({
+          id: obj.id,
+          signature: JSON.parse(obj.visual_features),
+          userTag: obj.user_tag
+        }));
+        
+        const matches = findMatches(signature, storedSignatures);
+        setMatchedObjects(matches);
+        
+        if (matches.length > 0) {
+          toast({
+            title: 'Object recognized!',
+            description: `Found ${matches.length} similar object(s) from your history`,
+          });
+        }
+      }
+      
+    } catch (error) {
+      console.error('Object analysis failed:', error);
+      toast({
+        title: 'Analysis failed',
+        description: 'Could not analyze the photo. Please try again.',
+        variant: 'destructive'
+      });
+    } finally {
+      setIsAnalyzing(false);
+      setModelLoading(false);
     }
   };
 
@@ -126,6 +203,14 @@ export default function Identify() {
     formData.append('tags', tags);
     if (linkedContactId) formData.append('linked_contact_id', linkedContactId);
     formData.append('notes', notes);
+    
+    // Include object recognition data if available
+    if (detectedObjects.length > 0) {
+      formData.append('detected_objects', JSON.stringify(detectedObjects));
+    }
+    if (objectSignature) {
+      formData.append('visual_features', JSON.stringify(objectSignature));
+    }
 
     uploadMutation.mutate(formData);
   };
@@ -136,6 +221,10 @@ export default function Identify() {
     setTags('');
     setLinkedContactId(undefined);
     setNotes('');
+    setDetectedObjects([]);
+    setObjectSignature(null);
+    setMatchedObjects([]);
+    setIsAnalyzing(false);
     stopCamera();
   };
 
@@ -174,8 +263,17 @@ export default function Identify() {
 
             {capturedPhoto && (
               <div className="relative">
-                <img src={capturedPhoto} alt="Captured" className="w-full rounded-lg"/>
+                <img ref={imageRef} src={capturedPhoto} alt="Captured" className="w-full rounded-lg"/>
                 <Button onClick={resetForm} variant="outline" className="absolute top-2 right-2">Retake</Button>
+                
+                {(isAnalyzing || modelLoading) && (
+                  <div className="absolute inset-0 bg-black/50 flex items-center justify-center rounded-lg">
+                    <div className="text-white text-center">
+                      <Brain className="w-8 h-8 mx-auto mb-2 animate-pulse"/>
+                      <p>{modelLoading ? 'Loading AI model...' : 'Analyzing objects...'}</p>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
@@ -183,14 +281,79 @@ export default function Identify() {
           </CardContent>
         </Card>
 
-        {/* Tagging */}
+        {/* Analysis Results & Tagging */}
         <Card>
-          <CardHeader><CardTitle>Tag & Identify</CardTitle></CardHeader>
-          <CardContent>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Eye className="w-5 h-5"/>
+              Tag & Identify
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            
+            {/* Object Recognition Results */}
+            {detectedObjects.length > 0 && (
+              <div className="space-y-3">
+                <Label className="text-sm font-medium">Detected Objects</Label>
+                <div className="flex flex-wrap gap-2">
+                  {detectedObjects.map((obj, index) => (
+                    <Badge key={index} variant="secondary" className="flex items-center gap-1">
+                      <Scan className="w-3 h-3"/>
+                      {obj.class} ({Math.round(obj.score * 100)}%)
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Matched Objects */}
+            {matchedObjects.length > 0 && (
+              <Alert>
+                <Check className="w-4 h-4"/>
+                <AlertDescription>
+                  <strong>Object recognized!</strong> Found {matchedObjects.length} similar item(s):
+                  <div className="mt-2 space-y-1">
+                    {matchedObjects.map((match, index) => (
+                      <div key={index} className="flex items-center justify-between">
+                        <span className="font-medium">"{match.userTag}"</span>
+                        <Badge variant="outline">{Math.round(match.confidence * 100)}% match</Badge>
+                      </div>
+                    ))}
+                  </div>
+                </AlertDescription>
+              </Alert>
+            )}
+
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <Label>Tags</Label>
-                <Input value={tags} onChange={(e) => setTags(e.target.value)} placeholder="family, celebration, etc."/>
+                <Label>Your Tag/Description</Label>
+                <Input 
+                  value={tags} 
+                  onChange={(e) => setTags(e.target.value)} 
+                  placeholder={detectedObjects.length > 0 ? 
+                    `Describe this ${detectedObjects[0]?.class || 'object'}...` : 
+                    "Describe what you see..."
+                  }
+                />
+                {matchedObjects.length > 0 && (
+                  <div className="mt-2">
+                    <p className="text-sm text-muted-foreground mb-1">Quick fill from matches:</p>
+                    <div className="flex flex-wrap gap-1">
+                      {matchedObjects.slice(0, 3).map((match, index) => (
+                        <Button
+                          key={index}
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setTags(match.userTag)}
+                          className="text-xs"
+                        >
+                          {match.userTag}
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div>
@@ -213,7 +376,8 @@ export default function Identify() {
               </div>
 
               <Button type="submit" className="w-full" disabled={!photoFile || uploadMutation.isPending}>
-                {uploadMutation.isPending ? 'Saving...' : 'Save Photo & Tags'}
+                {uploadMutation.isPending ? 'Saving...' : 
+                 detectedObjects.length > 0 ? 'Save Identified Object' : 'Save Photo & Tags'}
               </Button>
             </form>
           </CardContent>

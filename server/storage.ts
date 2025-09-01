@@ -2,13 +2,16 @@ import { db } from './db';
 import { 
   users, reminders, medications, medication_logs, contacts, locations, location_logs,
   journal_entries, memory_items, routines, tasks, quiz_questions, emergency_alerts,
+  object_recognitions, object_matches,
   type User, type NewUser, type Reminder, type NewReminder,
   type Medication, type NewMedication, type MedicationLog, type NewMedicationLog,
   type Contact, type NewContact, type Location, type NewLocation,
   type LocationLog, type NewLocationLog, type JournalEntry, type NewJournalEntry,
   type MemoryItem, type NewMemoryItem, type Routine, type NewRoutine,
   type Task, type NewTask, type QuizQuestion, type NewQuizQuestion,
-  type EmergencyAlert, type NewEmergencyAlert
+  type EmergencyAlert, type NewEmergencyAlert,
+  type ObjectRecognition, type NewObjectRecognition,
+  type ObjectMatch, type NewObjectMatch
 } from '@shared/schema';
 import { eq, and, desc } from 'drizzle-orm';
 
@@ -74,6 +77,12 @@ export interface IStorage {
   getEmergencyAlerts(userId: number): Promise<EmergencyAlert[]>;
   createEmergencyAlert(alert: NewEmergencyAlert): Promise<EmergencyAlert>;
   resolveEmergencyAlert(id: number): Promise<EmergencyAlert>;
+
+  // Object Recognition
+  getObjectRecognitions(userId: number): Promise<ObjectRecognition[]>;
+  createObjectRecognition(recognition: NewObjectRecognition): Promise<ObjectRecognition>;
+  findSimilarObjects(userId: number, visualFeatures: string): Promise<ObjectRecognition[]>;
+  createObjectMatch(match: NewObjectMatch): Promise<ObjectMatch>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -87,7 +96,7 @@ export class DatabaseStorage implements IStorage {
     return user;
   }
 
-  async createUser(user: InsertUser): Promise<User> {
+  async createUser(user: NewUser): Promise<User> {
     const [created] = await db.insert(users).values(user).returning();
     return created;
   }
@@ -101,12 +110,12 @@ export class DatabaseStorage implements IStorage {
     return reminder;
   }
 
-  async createReminder(reminder: InsertReminder): Promise<Reminder> {
+  async createReminder(reminder: NewReminder): Promise<Reminder> {
     const [created] = await db.insert(reminders).values(reminder).returning();
     return created;
   }
 
-  async updateReminder(id: number, updates: Partial<InsertReminder>): Promise<Reminder> {
+  async updateReminder(id: number, updates: Partial<NewReminder>): Promise<Reminder> {
     const [updated] = await db.update(reminders).set(updates).where(eq(reminders.id, id)).returning();
     return updated;
   }
@@ -124,12 +133,12 @@ export class DatabaseStorage implements IStorage {
     return medication;
   }
 
-  async createMedication(medication: InsertMedication): Promise<Medication> {
+  async createMedication(medication: NewMedication): Promise<Medication> {
     const [created] = await db.insert(medications).values(medication).returning();
     return created;
   }
 
-  async updateMedication(id: number, updates: Partial<InsertMedication>): Promise<Medication> {
+  async updateMedication(id: number, updates: Partial<NewMedication>): Promise<Medication> {
     const [updated] = await db.update(medications).set(updates).where(eq(medications.id, id)).returning();
     return updated;
   }
@@ -142,7 +151,7 @@ export class DatabaseStorage implements IStorage {
     return db.select().from(medication_logs).where(eq(medication_logs.medication_id, medicationId)).orderBy(desc(medication_logs.taken_at));
   }
 
-  async createMedicationLog(log: InsertMedicationLog): Promise<MedicationLog> {
+  async createMedicationLog(log: NewMedicationLog): Promise<MedicationLog> {
     const [created] = await db.insert(medication_logs).values(log).returning();
     return created;
   }
@@ -156,12 +165,12 @@ export class DatabaseStorage implements IStorage {
     return contact;
   }
 
-  async createContact(contact: InsertContact): Promise<Contact> {
+  async createContact(contact: NewContact): Promise<Contact> {
     const [created] = await db.insert(contacts).values(contact).returning();
     return created;
   }
 
-  async updateContact(id: number, updates: Partial<InsertContact>): Promise<Contact> {
+  async updateContact(id: number, updates: Partial<NewContact>): Promise<Contact> {
     const [updated] = await db.update(contacts).set(updates).where(eq(contacts.id, id)).returning();
     return updated;
   }
@@ -174,7 +183,7 @@ export class DatabaseStorage implements IStorage {
     return db.select().from(locations).where(eq(locations.user_id, userId));
   }
 
-  async createLocation(location: InsertLocation): Promise<Location> {
+  async createLocation(location: NewLocation): Promise<Location> {
     const [created] = await db.insert(locations).values(location).returning();
     return created;
   }
@@ -183,7 +192,7 @@ export class DatabaseStorage implements IStorage {
     return db.select().from(location_logs).where(eq(location_logs.user_id, userId)).orderBy(desc(location_logs.recorded_at));
   }
 
-  async createLocationLog(log: InsertLocationLog): Promise<LocationLog> {
+  async createLocationLog(log: NewLocationLog): Promise<LocationLog> {
     const [created] = await db.insert(location_logs).values(log).returning();
     return created;
   }
@@ -192,7 +201,7 @@ export class DatabaseStorage implements IStorage {
     return db.select().from(journal_entries).where(eq(journal_entries.user_id, userId)).orderBy(desc(journal_entries.created_at));
   }
 
-  async createJournalEntry(entry: InsertJournalEntry): Promise<JournalEntry> {
+  async createJournalEntry(entry: NewJournalEntry): Promise<JournalEntry> {
     const [created] = await db.insert(journal_entries).values(entry).returning();
     return created;
   }
@@ -205,7 +214,7 @@ export class DatabaseStorage implements IStorage {
     return db.select().from(memory_items).where(eq(memory_items.user_id, userId)).orderBy(desc(memory_items.created_at));
   }
 
-  async createMemoryItem(item: InsertMemoryItem): Promise<MemoryItem> {
+  async createMemoryItem(item: NewMemoryItem): Promise<MemoryItem> {
     const [created] = await db.insert(memory_items).values(item).returning();
     return created;
   }
@@ -218,7 +227,7 @@ export class DatabaseStorage implements IStorage {
     return db.select().from(routines).where(eq(routines.user_id, userId));
   }
 
-  async createRoutine(routine: InsertRoutine): Promise<Routine> {
+  async createRoutine(routine: NewRoutine): Promise<Routine> {
     const [created] = await db.insert(routines).values(routine).returning();
     return created;
   }
@@ -227,12 +236,12 @@ export class DatabaseStorage implements IStorage {
     return db.select().from(tasks).where(eq(tasks.routine_id, routineId));
   }
 
-  async createTask(task: InsertTask): Promise<Task> {
+  async createTask(task: NewTask): Promise<Task> {
     const [created] = await db.insert(tasks).values(task).returning();
     return created;
   }
 
-  async updateTask(id: number, updates: Partial<InsertTask>): Promise<Task> {
+  async updateTask(id: number, updates: Partial<NewTask>): Promise<Task> {
     const [updated] = await db.update(tasks).set(updates).where(eq(tasks.id, id)).returning();
     return updated;
   }
@@ -241,7 +250,7 @@ export class DatabaseStorage implements IStorage {
     return db.select().from(quiz_questions).where(eq(quiz_questions.user_id, userId));
   }
 
-  async createQuizQuestion(question: InsertQuizQuestion): Promise<QuizQuestion> {
+  async createQuizQuestion(question: NewQuizQuestion): Promise<QuizQuestion> {
     const [created] = await db.insert(quiz_questions).values(question).returning();
     return created;
   }
@@ -250,14 +259,38 @@ export class DatabaseStorage implements IStorage {
     return db.select().from(emergency_alerts).where(eq(emergency_alerts.user_id, userId)).orderBy(desc(emergency_alerts.triggered_at));
   }
 
-  async createEmergencyAlert(alert: InsertEmergencyAlert): Promise<EmergencyAlert> {
+  async createEmergencyAlert(alert: NewEmergencyAlert): Promise<EmergencyAlert> {
     const [created] = await db.insert(emergency_alerts).values(alert).returning();
     return created;
   }
 
   async resolveEmergencyAlert(id: number): Promise<EmergencyAlert> {
-    const [resolved] = await db.update(emergency_alerts).set({ resolved: true }).where(eq(emergency_alerts.id, id)).returning();
+    const [resolved] = await db.update(emergency_alerts).set({ 
+      status: 'resolved',
+      resolved_at: new Date()
+    }).where(eq(emergency_alerts.id, id)).returning();
     return resolved;
+  }
+
+  // Object Recognition methods
+  async getObjectRecognitions(userId: number): Promise<ObjectRecognition[]> {
+    return db.select().from(object_recognitions).where(eq(object_recognitions.user_id, userId)).orderBy(desc(object_recognitions.created_at));
+  }
+
+  async createObjectRecognition(recognition: NewObjectRecognition): Promise<ObjectRecognition> {
+    const [created] = await db.insert(object_recognitions).values(recognition).returning();
+    return created;
+  }
+
+  async findSimilarObjects(userId: number, visualFeatures: string): Promise<ObjectRecognition[]> {
+    // For now, return all user's objects for client-side similarity comparison
+    // In a production system, you'd use vector similarity search
+    return db.select().from(object_recognitions).where(eq(object_recognitions.user_id, userId));
+  }
+
+  async createObjectMatch(match: NewObjectMatch): Promise<ObjectMatch> {
+    const [created] = await db.insert(object_matches).values(match).returning();
+    return created;
   }
 }
 
