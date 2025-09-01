@@ -15,28 +15,37 @@ export function useAuth() {
     mutationFn: ({ email, password }: { email: string; password: string }) =>
       authApi.login(email, password),
     onSuccess: (user) => {
-      queryClient.setQueryData(['auth', 'me'], user);
+      queryClient.setQueryData(['/api', 'auth', 'me'], user);
       // Connect to socket when user logs in
       socketManager.connect(user.id);
     },
+    onError: (error) => {
+      console.log('Login failed:', error.message);
+    }
   });
 
   const registerMutation = useMutation({
     mutationFn: ({ email, password, name }: { email: string; password: string; name: string }) =>
       authApi.register(email, password, name),
     onSuccess: (user) => {
-      queryClient.setQueryData(['auth', 'me'], user);
+      queryClient.setQueryData(['/api', 'auth', 'me'], user);
       socketManager.connect(user.id);
     },
+    onError: (error) => {
+      console.log('Registration failed:', error.message);
+    }
   });
 
   const logoutMutation = useMutation({
     mutationFn: authApi.logout,
     onSuccess: () => {
-      queryClient.setQueryData(['auth', 'me'], null);
+      queryClient.setQueryData(['/api', 'auth', 'me'], null);
       queryClient.clear();
       socketManager.disconnect();
     },
+    onError: (error) => {
+      console.log('Logout failed:', error.message);
+    }
   });
 
   return {

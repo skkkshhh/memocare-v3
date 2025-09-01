@@ -53,7 +53,10 @@ export const queryClient = new QueryClient({
     mutations: {
       retry: false,
       onError: (error) => {
-        console.warn('Mutation failed:', error);
+        // Silently handle auth errors, log others
+        if (!error?.message?.includes('401')) {
+          console.warn('Mutation failed:', error);
+        }
       },
     },
   },
